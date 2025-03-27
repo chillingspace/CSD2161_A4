@@ -376,6 +376,9 @@ void requestHandler() {
 		}
 
 		// handle data
+		for (const auto rbuf : recvbuffer) {
+			const int cmd = rbuf[0];
+		}
 	}
 }
 
