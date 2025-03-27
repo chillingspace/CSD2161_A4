@@ -43,7 +43,7 @@ cmd - 1 byte
 session id - 1 byte
 ```
 
-## SELF_SPACESHIP [CLIENT]
+## SELF_SPACESHIP [CLIENT RELIABLE]
 ```cpp
 cmd - 1 byte
 session id - 1 byte
