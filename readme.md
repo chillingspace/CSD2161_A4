@@ -90,6 +90,11 @@ float num = *reinterpret_cast<float*>(&int_rep);
 
 </details>
 
+# Important
+
+1st byte should always be a command eg. CONN_REQUEST
+2nd byte should always be a session id whenever possible
+
 
 # Flow
 
@@ -107,14 +112,14 @@ Server response:
 - num lives [1 byte]
 
 Client response:
-- `ACK_CONN_REQUEST`, 1 byte. for both `CONN_ACCEPTED` and `CONN_REJECTED`
+- `ACK_CONN_REQUEST`, 2 bytes. 1 byte for both `CONN_ACCEPTED` and `CONN_REJECTED`, 1 byte for session id(if accepted)
 
 
 ## Start game
 
 1. Any client sends `REQ_START_GAME` request to server
 2. Server sends `START_GAME` response to all clients
-3. Client sends `ACK_START_GAME` and starts game (allow players to move and shoot)
+3. Client sends `ACK_START_GAME` and starts game (allow players to move and shoot), and 1 byte for SESSION_ID
 4. Server receives `ACK_START_GAME`, else times out and send requests again. If no response if 5 seconds, disconnects client
 
 ## On every frame
