@@ -1,0 +1,7 @@
+﻿  Collision.cpp
+  GameStateMgr.cpp
+  GameState_Asteroids.cpp
+  Main.cpp
+C:\Users\seang\Desktop\School\Y2 TRI 2\Computer Networks\Assignment 4\CSD2161_A4\client\CSD1130_Asteroids\Src\Main.cpp(55,48): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+  Generating Code...
+  CSD1130_Asteroids.vcxproj -> C:\Users\seang\Desktop\School\Y2 TRI 2\Computer Networks\Assignment 4\CSD2161_A4\client\Bin\CSD1130_AsteroidsD.exe
