@@ -179,6 +179,7 @@ for each asteroid
       - Rotation (unsigned in degrees)
         - 2 bytes
       - Lives left
+        - 1 byte
     }
   - Number of bullets
     - 1 byte
