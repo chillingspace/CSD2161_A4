@@ -20,6 +20,7 @@ enum CLIENT_REQUESTS {
   ACK_CONN_REQUEST,
   REQ_START_GAME,
   ACK_START_GAME,
+  ACK_ACK_SELF_SPACESHIP,
   SELF_SPACESHIP,
   ACK_ALL_ENTITIES,
   ACK_END_GAME
@@ -29,6 +30,7 @@ enum SERVER_MSGS {
   CONN_ACCEPTED = 0,
   CONN_REJECTED,
   START_GAME,
+  ACK_SELF_SPACESHIP,
   ALL_ENTITIES,
   END_GAME
 }
@@ -149,8 +151,11 @@ for each asteroid
   - asteroid ID (4 bytes)
 }
 
+###### --
+
+
 2. Server updates location
-  - If packet is received, overwrite position
+  - If packet is received, overwrite position and send `ACK_SELF_SPACESHIP`. client has to respond withh `ACK_ACK_SELF_SPACESHIP`
   - Else, calculate new position based on previous position and vector
 
 3. Server updates asteroids
