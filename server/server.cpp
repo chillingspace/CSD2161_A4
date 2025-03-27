@@ -48,6 +48,7 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 #include <chrono>
 #include <mutex>
 #include <deque>
+#include <bitset>
 
 using SESSION_ID = int;
 
@@ -73,11 +74,26 @@ std::mutex udp_clients_mutex;
 bool udpListenerRunning = true;
 
 // ack stuff
-std::unordered_map<SESSION_ID, bool> client_acks;
-std::mutex client_acks_mutex;
+std::unordered_set<SESSION_ID> ack_start_game_clients;
+std::mutex ack_start_game_clients_mutex;
+
+std::unordered_set<SESSION_ID> ack_conn_request_clients;
+std::mutex ack_conn_request_clients_mutex;
+
+std::unordered_set<SESSION_ID> ack_self_spaceship_clients;
+std::mutex ack_self_spaceship_clients_mutex;
+
+std::unordered_set<SESSION_ID> ack_all_entities_clients;
+std::mutex ack_all_entities_clients_mutex;
+
+std::unordered_set<SESSION_ID> ack_end_game_clients;
+std::mutex ack_end_game_clients_mutex;
 
 std::unordered_map<SESSION_ID, float> client_last_request_time;		// used to timeout client connection
 std::mutex client_last_request_time_mutex;
+
+std::vector<SESSION_ID> active_sessions;
+std::mutex active_sessions_mutex;
 
 // timeout stuff
 constexpr int DISCONNECTION_TIMEOUT_DURATION_MS = 15000;
@@ -91,6 +107,37 @@ std::mutex recvbuffer_queue_mutex;
 // game stuff
 constexpr int MAX_PLAYERS = 4;
 
+// for ALL_ENTITIES payload
+struct vec2 {
+	union {
+		struct { float x, y; };
+		float raw[2];
+	};
+};
+
+
+struct Asteroid {
+	vec2 pos;
+	vec2 vector;
+};
+
+struct Bullet : public Asteroid {
+	SESSION_ID sid;
+};
+
+struct Spaceship : public Bullet {
+	float rotation;
+	int lives_left;
+};
+
+class Game {
+public:
+	std::vector<Spaceship> spaceships;
+	std::vector<Bullet> bullets;
+	std::vector<Asteroid> asteroids;
+
+	std::vector<char> toBytes();
+};
 
 
 void emptyfn() {}
@@ -126,6 +173,82 @@ struct Client {
 };
 std::unordered_map<SOCKET, Client> conns;
 std::mutex conns_mutex;
+
+template <typename T>
+std::vector<char> to_bytes(T num) {
+	std::vector<char> bytes(sizeof(T));
+
+	if constexpr (std::is_integral<T>::value) {
+		// for ints, convert to network byte order
+		num = htonl(num);
+		std::memcpy(bytes.data(), &num, sizeof(T));
+	}
+	else if constexpr (std::is_floating_point<T>::value) {
+		// For floats
+		unsigned int int_rep = *reinterpret_cast<unsigned int*>(&num);  // reinterpret float as unsigned int
+		int_rep = htonl(int_rep);
+		std::memcpy(bytes.data(), &int_rep, sizeof(T));
+	}
+
+	return bytes;
+}
+
+
+std::vector<char> Game::toBytes() {
+	std::vector<char> buf;
+
+	// num spaceships
+	buf.push_back((char)spaceships.size());
+	std::vector<char> bytes;
+
+	for (const Spaceship& s : spaceships) {
+		// only stuff integral to rendering/interaction is sent
+		// vector is not sent
+
+		buf.push_back(s.sid & 0xff);		// spaceship sid
+
+		bytes = to_bytes(s.pos.x);
+		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos x (4 bytes)
+
+		bytes = to_bytes(s.pos.y);
+		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos y (4 bytes)
+
+		bytes = to_bytes(s.rotation);
+		buf.insert(buf.end(), bytes.begin(), bytes.end());	// rotation in degrees (4 bytes)
+
+		buf.push_back(s.lives_left);						// lives left (1 byte)
+	}
+
+	// num bullets
+	buf.push_back((char)bullets.size());
+
+	for (const Bullet& b : bullets) {
+		// vector is not sent, not integral to rendering
+
+		buf.push_back(b.sid & 0xff);		// bullet sid
+
+		bytes = to_bytes(b.pos.x);
+		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos x (4 bytes)
+
+		bytes = to_bytes(b.pos.y);
+		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos y (4 bytes)
+	}
+
+	// num asteroids
+	buf.push_back((char)asteroids.size());
+
+	for (const Asteroid& a : asteroids) {
+		// vector not sent, not needed for rendering
+
+		bytes = to_bytes(a.pos.x);
+		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos x (4 bytes)
+
+		bytes = to_bytes(a.pos.y);
+		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos y (4 bytes)
+	}
+
+	return buf;
+}
 
 
 /**
@@ -194,7 +317,7 @@ int sendData(const std::vector<char>& buffer, sockaddr_in udp_addr_in) {
 	return bytesSent;
 }
 
-int broadcastData(const std::vector<char>& buffer, SESSION_ID sid) {
+int broadcastData(const std::vector<char>& buffer) {
 	if (udp_socket_broadcast == INVALID_SOCKET) {
 		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
 		std::cerr << "Invalid socket." << std::endl;
@@ -302,43 +425,6 @@ SOCKET createUdpSocket(int port, bool broadcast = false) {
 }
 
 /**
- * uses stop and wait to ensure client acks before performing next action.
- *
- * \param buffer
- * \param sid
- * \return
- */
-bool sendReliableUdp(const std::vector<char>& buffer, SESSION_ID sid) {
-	bool ack = false;
-	float elapsed_time{};
-
-	auto start = std::chrono::high_resolution_clock::now();
-
-	while (!ack) {
-		auto curr = std::chrono::high_resolution_clock::now();
-		if (curr - start > std::chrono::seconds(DISCONNECTION_TIMEOUT_DURATION_MS)) {
-			// disconnect udp client if taking too long to respond
-			std::lock_guard<std::mutex> lock(udp_clients_mutex);
-			if (udp_clients.find(sid) != udp_clients.end()) {
-				udp_clients.erase(sid);
-			}
-			return false;
-		}
-
-
-		int bytesSent = sendData(buffer, sid);
-
-		{
-			std::lock_guard<std::mutex> lock(client_acks_mutex);
-			ack = client_acks[sid];
-		}
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT_MS));
-	}
-	return true;
-}
-
-/**
  * worker thread. should only be used in 1 thread in any given time.
  *
  */
@@ -377,6 +463,49 @@ void udpListener() {
 			std::cerr << "recvfrom() failed with wsa error: " << wsaError << std::endl;
 		}
 
+		// acks
+		const int cmd = recvbuffer[0];
+		const int sid = recvbuffer[1];
+		bool isAck = false;
+
+		switch (cmd) {
+		case ACK_CONN_REQUEST: {
+			isAck = true;
+			std::lock_guard<std::mutex> acklock(ack_conn_request_clients_mutex);
+			ack_conn_request_clients.insert(sid);
+			break;
+		}
+		case ACK_START_GAME: {
+			isAck = true;
+			std::lock_guard<std::mutex> acklock(ack_start_game_clients_mutex);
+			ack_start_game_clients.insert(sid);
+			break;
+		}
+		case ACK_ACK_SELF_SPACESHIP: {
+			isAck = true;
+			std::lock_guard<std::mutex> acklock(ack_self_spaceship_clients_mutex);
+			ack_self_spaceship_clients.insert(sid);
+			break;
+		}
+		case ACK_ALL_ENTITIES: {
+			isAck = true;
+			std::lock_guard<std::mutex> acklock(ack_all_entities_clients_mutex);
+			ack_all_entities_clients.insert(sid);
+			break;
+		}
+		case ACK_END_GAME: {
+			isAck = true;
+			std::lock_guard<std::mutex> acklock(ack_end_game_clients_mutex);
+			ack_end_game_clients.insert(sid);
+			break;
+		}
+		}
+
+		if (isAck) {
+			// if is ack, dont push into recvbuffer_queue as already recorded in ack
+			continue;
+		}
+
 		{
 			std::lock_guard<std::mutex> lock(recvbuffer_queue_mutex);
 			recvbuffer_queue.push_back({ senderAddr, recvbuffer });
@@ -399,8 +528,9 @@ void requestHandler() {
 			recvbuffer_queue.clear();
 		}
 
-		std::vector<char> sbuf(1000);
-		sbuf.resize(1000);
+		static std::vector<char> sbuf(MAX_PACKET_SIZE);
+		if (sbuf.size() != MAX_PACKET_SIZE)
+			sbuf.resize(MAX_PACKET_SIZE);
 
 		// handle data
 		for (const auto [senderAddr, rbuf] : recvbuffer) {
@@ -411,17 +541,124 @@ void requestHandler() {
 				if (udp_clients.size() >= MAX_PLAYERS) {
 					sbuf[0] = CONN_REJECTED;
 					sendData(sbuf, senderAddr);
+					break;
 				}
 
-				sbuf[0] = CONN_ACCEPTED;
+				const int sid = getSessionId();
+
+				{
+					std::lock_guard<std::mutex> active_sessions_lock(active_sessions_mutex);
+					active_sessions.push_back(sid);
+				}
+
+				int buf_idx{};
+
+				sbuf[buf_idx++] = CONN_ACCEPTED;
 
 				// session id
-				sbuf[1] = getSessionId();
+				sbuf[buf_idx++] = sid;
 
 				// broadcast port
-				sbuf[2] = serverUdpPortBroadcast;
+				sbuf[buf_idx++] = (serverUdpPortBroadcast >> 8) & 0xff;
+				sbuf[buf_idx++] = serverUdpPortBroadcast & 0xff;
+
+				// spawn locations (world pos)
+				constexpr float spawnX = 0;
+				constexpr float spawnY = 0;
+
+				memcpy(sbuf.data() + buf_idx, to_bytes(spawnX).data(), sizeof(float));
+				buf_idx += (int)sizeof(float) / 8;
+				memcpy(sbuf.data() + buf_idx, to_bytes(spawnY).data(), sizeof(float));
+				buf_idx += (int)sizeof(float) / 8;
+
+				// spawn rotation
+				constexpr int rotation_deg = 0;
+
+				sbuf[buf_idx++] = (rotation_deg >> 24) & 0xff;
+				sbuf[buf_idx++] = (rotation_deg >> 16) & 0xff;
+				sbuf[buf_idx++] = (rotation_deg >> 8) & 0xff;
+				sbuf[buf_idx++] = rotation_deg & 0xff;
+
+				// num lives
+				constexpr int starting_lives = 3;
+
+				sbuf[buf_idx++] = starting_lives;
+
+				sendData(sbuf, senderAddr);
 
 				break;
+			}
+			case REQ_START_GAME: {
+				std::vector<char> buf(MAX_PACKET_SIZE);
+				buf.resize(MAX_PACKET_SIZE);
+
+				buf[0] = START_GAME;
+
+				int num_conns{};
+				{
+					std::lock_guard<std::mutex> lock(active_sessions_mutex);
+					num_conns = active_sessions.size();
+				}
+
+				auto bc = [&buf, num_conns]() {
+					int num_acks{};
+
+					auto start = std::chrono::high_resolution_clock::now();
+
+					// wait for all clients to ack
+					while (num_acks < num_conns) {
+						auto curr = std::chrono::high_resolution_clock::now();
+
+						if (curr - start >= std::chrono::milliseconds(DISCONNECTION_TIMEOUT_DURATION_MS)) {
+							// disconnect clients that did not ack
+							std::unordered_set<SESSION_ID> acked_clients;
+							{
+								std::lock_guard<std::mutex> req_start_game_ack_lock(ack_start_game_clients_mutex);
+								acked_clients = ack_start_game_clients;
+							}
+
+
+							{
+								std::unordered_set<SESSION_ID> timeout_disconnect_clients;
+								std::lock_guard<std::mutex> clientslock(active_sessions_mutex);
+
+								// remove sessions that timed out
+								for (auto it = active_sessions.begin(); it != active_sessions.end();) {
+									if (acked_clients.find(*it) != acked_clients.end()) {
+										++it;
+										continue;
+									}
+									it = active_sessions.erase(it);
+								}
+							}
+
+							break;
+						}
+
+						broadcastData(sbuf);
+
+						std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT_MS));
+
+						{
+							std::lock_guard<std::mutex> acklock(ack_start_game_clients_mutex);
+							num_acks = (int)ack_start_game_clients.size();
+						}
+					}
+
+					// cleanup acks
+					{
+						std::lock_guard<std::mutex> req_start_game_ack_lock(ack_start_game_clients_mutex);
+						ack_start_game_clients.clear();
+					}
+					};
+
+				// broadcast game start through reliable udp communication
+				bc();
+
+				break;
+			}
+			case SELF_SPACESHIP: {
+				
 			}
 			}
 		}
