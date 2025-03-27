@@ -46,38 +46,48 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 #include <thread>
 #include <unordered_set>
 #include <chrono>
-
-#include "taskqueue.h"
+#include <mutex>
+#include <deque>
 
 using SESSION_ID = int;
 
 constexpr int MAX_PACKET_SIZE = 1000;
 
+std::mutex _stdoutMutex;
+
+// server stuff
 char serverIPAddr[MAX_PACKET_SIZE];
 int serverUdpPort{};
+int serverUdpPortBroadcast{};
 addrinfo* udp_info = nullptr;
 std::mutex udp_info_mutex;
+
+// udp stuff
 SESSION_ID session_id{};
 SOCKET udp_socket{};
+SOCKET udp_socket_broadcast{};
 
 std::unordered_map<SESSION_ID, sockaddr_in> udp_clients;
 std::mutex udp_clients_mutex;
 
+bool udpListenerRunning = true;
+
+// ack stuff
 std::unordered_map<SESSION_ID, bool> client_acks;
 std::mutex client_acks_mutex;
 
 std::unordered_map<SESSION_ID, float> client_last_request_time;		// used to timeout client connection
 std::mutex client_last_request_time_mutex;
 
+// timeout stuff
 constexpr int DISCONNECTION_TIMEOUT_DURATION_MS = 15000;
 constexpr int TIMEOUT_MS = 200;		// timeout before retrying
 
-bool udpListenerRunning = true;
-int sendData(const std::vector<char>& buffer, SESSION_ID sid);
-
+// recv stuff
 constexpr int MAX_PACKET_QUEUE = 100;
 std::deque<std::vector<char>> recvbuffer_queue;
 std::mutex recvbuffer_queue_mutex;
+
 
 
 void emptyfn() {}
@@ -161,11 +171,38 @@ int sendData(const std::vector<char>& buffer, SESSION_ID sid) {
 	return bytesSent;
 }
 
+int broadcastData(const std::vector<char>& buffer, SESSION_ID sid) {
+	if (udp_socket_broadcast == INVALID_SOCKET) {
+		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
+		std::cerr << "Invalid socket." << std::endl;
+		return SOCKET_ERROR;
+	}
+
+	// Prepare the broadcast address
+	sockaddr_in udp_addr_in;
+	SecureZeroMemory(&udp_addr_in, sizeof(udp_addr_in));
+	udp_addr_in.sin_family = AF_INET;
+	udp_addr_in.sin_port = htons(serverUdpPortBroadcast);  // Make sure to use the correct port
+	udp_addr_in.sin_addr.s_addr = htonl(INADDR_BROADCAST);  // Broadcast address 255.255.255.255
+
+	int bytesSent = sendto(udp_socket_broadcast, buffer.data(), (int)buffer.size(), 0, reinterpret_cast<sockaddr*>(&udp_addr_in), sizeof(sockaddr_in));
+	if (bytesSent == SOCKET_ERROR) {
+		//std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
+		char errorBuffer[256];
+		strerror_s(errorBuffer, sizeof(errorBuffer), errno);
+		//std::cerr << "sendto() failed: " << errorBuffer << std::endl;
+
+		int wsaError = WSAGetLastError();
+		//std::cerr << "sendto() failed with wsa error: " << wsaError << std::endl;
+	}
+	return bytesSent;
+}
+
 int getSessionId() {
 	return session_id++;
 }
 
-SOCKET createUdpSocket(int port) {
+SOCKET createUdpSocket(int port, bool broadcast = false) {
 	// Create a UDP socket
 	addrinfo hints{};
 	SecureZeroMemory(&hints, sizeof(hints));
@@ -192,6 +229,15 @@ SOCKET createUdpSocket(int port) {
 	if (udpSocket == INVALID_SOCKET)
 	{
 		std::cerr << "socket() failed." << std::endl;
+		freeaddrinfo(udp_info);
+		WSACleanup();
+		return INVALID_SOCKET;
+	}
+
+	if (broadcast && setsockopt(udpSocket, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char*>(&broadcast), sizeof(broadcast)) == SOCKET_ERROR)
+	{
+		std::cerr << "setsockopt() failed to enable broadcasting." << std::endl;
+		closesocket(udpSocket);
 		freeaddrinfo(udp_info);
 		WSACleanup();
 		return INVALID_SOCKET;
@@ -227,7 +273,6 @@ SOCKET createUdpSocket(int port) {
 		WSACleanup();
 		return INVALID_SOCKET;
 	}
-	serverUdpPort = result_port;		// to check if port is assigned correctly
 
 	//freeaddrinfo(udp_info);
 	return udpSocket;
@@ -235,10 +280,10 @@ SOCKET createUdpSocket(int port) {
 
 /**
  * uses stop and wait to ensure client acks before performing next action.
- * 
+ *
  * \param buffer
  * \param sid
- * \return 
+ * \return
  */
 bool sendReliableUdp(const std::vector<char>& buffer, SESSION_ID sid) {
 	bool ack = false;
@@ -317,6 +362,23 @@ void udpListener() {
 }
 
 
+void requestHandler() {
+
+	while (udpListenerRunning) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+		// get data
+		std::deque<std::vector<char>> recvbuffer;
+		{
+			std::lock_guard<std::mutex> lock(recvbuffer_queue_mutex);
+			recvbuffer = recvbuffer_queue;
+			recvbuffer_queue.clear();
+		}
+
+		// handle data
+	}
+}
+
 int main()
 {
 	std::string udpPortString;
@@ -333,6 +395,7 @@ int main()
 	udpPortString = "3001";
 	serverUdpPort = 3001;
 #endif
+	serverUdpPortBroadcast = serverUdpPort + 1;
 
 
 	// -------------------------------------------------------------------------
@@ -398,11 +461,22 @@ int main()
 		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
 		std::cout << std::endl;
 		std::cout << "Server IP Address: " << serverIPAddr << std::endl;
-		std::cout << "Server UDP Port Number: " << udpPortString << std::endl;
+		std::cout << "Server UDP Port Number: " << serverUdpPort << std::endl;
+		std::cout << "Server UDP broadcast Port Number: " << serverUdpPortBroadcast << std::endl;
 	}
 
 	// create UDP socket
 	udp_socket = createUdpSocket(serverUdpPort);
+	if (udp_socket == INVALID_SOCKET) {
+		closesocket(udp_socket);
+		udp_socket = INVALID_SOCKET;
+		WSACleanup();
+		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
+		std::cerr << "Failed to create UDP socket" << std::endl;
+		return 4;
+	}
+
+	udp_socket_broadcast = createUdpSocket(serverUdpPortBroadcast, true);
 	if (udp_socket == INVALID_SOCKET) {
 		closesocket(udp_socket);
 		udp_socket = INVALID_SOCKET;
@@ -425,7 +499,7 @@ int main()
 
 		while (ln != "q")
 			std::getline(std::cin, ln);
-	};
+		};
 	quitServer();
 
 	freeaddrinfo(info);
