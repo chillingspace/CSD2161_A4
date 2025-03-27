@@ -85,8 +85,11 @@ constexpr int TIMEOUT_MS = 200;		// timeout before retrying
 
 // recv stuff
 constexpr int MAX_PACKET_QUEUE = 100;
-std::deque<std::vector<char>> recvbuffer_queue;
+std::deque<std::pair<sockaddr_in, std::vector<char>>> recvbuffer_queue;
 std::mutex recvbuffer_queue_mutex;
+
+// game stuff
+constexpr int MAX_PLAYERS = 4;
 
 
 
@@ -159,6 +162,26 @@ int sendData(const std::vector<char>& buffer, SESSION_ID sid) {
 	}
 
 	int bytesSent = sendto(udp_socket, buffer.data(), (int)buffer.size(), 0, reinterpret_cast<sockaddr*>(&const_cast<sockaddr_in&>(*udp_addr_in)), sizeof(sockaddr_in));
+	if (bytesSent == SOCKET_ERROR) {
+		//std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
+		char errorBuffer[256];
+		strerror_s(errorBuffer, sizeof(errorBuffer), errno);
+		//std::cerr << "sendto() failed: " << errorBuffer << std::endl;
+
+		int wsaError = WSAGetLastError();
+		//std::cerr << "sendto() failed with wsa error: " << wsaError << std::endl;
+	}
+	return bytesSent;
+}
+
+int sendData(const std::vector<char>& buffer, sockaddr_in udp_addr_in) {
+	if (udp_socket == INVALID_SOCKET) {
+		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
+		std::cerr << "Invalid socket." << std::endl;
+		return SOCKET_ERROR;
+	}
+
+	int bytesSent = sendto(udp_socket, buffer.data(), (int)buffer.size(), 0, reinterpret_cast<sockaddr*>(&udp_addr_in), sizeof(sockaddr_in));
 	if (bytesSent == SOCKET_ERROR) {
 		//std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
 		char errorBuffer[256];
@@ -356,7 +379,7 @@ void udpListener() {
 
 		{
 			std::lock_guard<std::mutex> lock(recvbuffer_queue_mutex);
-			recvbuffer_queue.push_back(recvbuffer);
+			recvbuffer_queue.push_back({ senderAddr, recvbuffer });
 		}
 	}
 }
@@ -368,14 +391,40 @@ void requestHandler() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
 		// get data
-		std::deque<std::vector<char>> recvbuffer;
+		std::deque<std::pair<sockaddr_in, std::vector<char>>> recvbuffer;
 		{
 			std::lock_guard<std::mutex> lock(recvbuffer_queue_mutex);
+
 			recvbuffer = recvbuffer_queue;
 			recvbuffer_queue.clear();
 		}
 
+		std::vector<char> sbuf(1000);
+		sbuf.resize(1000);
+
 		// handle data
+		for (const auto [senderAddr, rbuf] : recvbuffer) {
+			const int cmd = rbuf[0];
+
+			switch (cmd) {
+			case CONN_REQUEST: {
+				if (udp_clients.size() >= MAX_PLAYERS) {
+					sbuf[0] = CONN_REJECTED;
+					sendData(sbuf, senderAddr);
+				}
+
+				sbuf[0] = CONN_ACCEPTED;
+
+				// session id
+				sbuf[1] = getSessionId();
+
+				// broadcast port
+				sbuf[2] = serverUdpPortBroadcast;
+
+				break;
+			}
+			}
+		}
 	}
 }
 

@@ -90,6 +90,11 @@ float num = *reinterpret_cast<float*>(&int_rep);
 
 </details>
 
+# Important
+
+1st byte should always be a command eg. CONN_REQUEST
+2nd byte should always be a session id whenever possible
+
 
 # Flow
 
@@ -101,19 +106,20 @@ Client request:
 Server response:
 - `CONN_ACCEPTED`/`CONN_REJECTED` [1 byte]
 - session ID [1 byte]
+- broadcast port [2 bytes]
 - spawn location in xy coords [8 bytes signed] - use float with mantissa/exponent
 - spawn rotation in degrees [2 bytes int]
 - num lives [1 byte]
 
 Client response:
-- `ACK_CONN_REQUEST`, 1 byte. for both `CONN_ACCEPTED` and `CONN_REJECTED`
+- `ACK_CONN_REQUEST`, 2 bytes. 1 byte for both `CONN_ACCEPTED` and `CONN_REJECTED`, 1 byte for session id(if accepted)
 
 
 ## Start game
 
 1. Any client sends `REQ_START_GAME` request to server
 2. Server sends `START_GAME` response to all clients
-3. Client sends `ACK_START_GAME` and starts game (allow players to move and shoot)
+3. Client sends `ACK_START_GAME` and starts game (allow players to move and shoot), and 1 byte for SESSION_ID
 4. Server receives `ACK_START_GAME`, else times out and send requests again. If no response if 5 seconds, disconnects client
 
 ## On every frame
@@ -155,19 +161,19 @@ for each asteroid
 
 
 2. Server updates location
-  - If packet is received, overwrite position and send `ACK_SELF_SPACESHIP`. client has to respond withh `ACK_ACK_SELF_SPACESHIP`
-  - Else, calculate new position based on previous position and vector
+  &nbsp;- If packet is received, overwrite position and send `ACK_SELF_SPACESHIP`. client has to respond withh `ACK_ACK_SELF_SPACESHIP`
+  &nbsp;- Else, calculate new position based on previous position and vector
 
 3. Server updates asteroids
-  - remove asteroids destroyed
+  &nbsp;- remove asteroids destroyed
 
 4. Server updates bullets
-  - remove dead bullets (out of frame, since this game uses a fixed camera)
+  &nbsp;- remove dead bullets (out of frame, since this game uses a fixed camera)
 
 5. Server sends entities data to clients
-  - `ALL_ENTITIES`    // use as rendering data?
+  &nbsp;- `ALL_ENTITIES`    // use as rendering data?
     - 1 byte
-  - Number of spaceships (alive, dead spaceships dont have to be rendered)
+  &nbsp;- Number of spaceships (alive, dead spaceships dont have to be rendered)
     - 1 byte
 
     for each spaceship
@@ -180,14 +186,17 @@ for each asteroid
         - 2 bytes
       - Lives left
         - 1 byte
+
     }
-  - Number of bullets
+
+  &nbsp;- Number of bullets
     - 1 byte
 
     for each bullet
     {
       - Position xy coords for each bullet (4 bytes)
       - each bullet vector (8 bytes)
+      
     }
 
   - Number of asteroids (alive)
