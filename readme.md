@@ -1,3 +1,147 @@
+# Payloads
+
+## CONN_REQUEST [CLIENT]
+```cpp
+cmd - 1 byte
+```
+
+## CONN_REJECTED [SERVER RELIABLE]
+```cpp
+cmd - 1 byte
+```
+
+## CONN_ACCEPTED [SERVER RELIABLE]
+```cpp
+cmd - 1 byte
+session id - 1 byte
+udp broadcast port - 2 bytes
+spawn pos x - 4 bytes [float]
+spawn pos y - 4 bytes [float]
+spawn rotation degrees - 4 bytes [float]
+spawn lives - 1 byte
+```
+
+## ACK_CONN_REQUEST [CLIENT]
+```cpp
+cmd - 1 byte
+session id - 1 byte
+```
+
+## REQ_START_GAME [CLIENT]
+```cpp
+cmd - 1 byte
+```
+
+## START_GAME [SERVER RELIABLE]
+```cpp
+cmd - 1 byte
+```
+
+## ACK_START_GAME [CLIENT]
+```cpp
+cmd - 1 byte
+session id - 1 byte
+```
+
+## SELF_SPACESHIP [CLIENT]
+```cpp
+cmd - 1 byte
+session id - 1 byte
+
+pos x - 4 bytes [float]
+pos y - 4 bytes [float]
+vector x - 4 bytes [float]
+vector y - 4 bytes [float]
+rotation - 4 bytes [float]
+
+num new bullets fired - 1 byte (gotta keep track, if server does not ack, store data and send again next frame)
+
+// first bullet
+pos x - 4 bytes
+pos y - 4 bytes
+vector x - 4 bytes
+vector y - 4 bytes
+
+// second, third bullet etc
+
+num new asteroids destroyed - 1 byte (gotta keep track, if server does not ack, store data and send again next frame)
+
+// first asteroid
+asteroid id - 4 bytes
+
+// second, third asteroid destroyed etc
+```
+
+## ACK_SELF_SPACESHIP [SERVER RELIABLE]
+```cpp
+cmd - 1 byte
+session id - 1 byte
+```
+
+## ACK_ACK_SELF_SPACESHIP [CLIENT]
+used to tell server that client has received ack for payload, as client stores data that was not received by server.
+eg. bullet fired this frame, not received by server, hence resend this bullet next frame
+```cpp
+cmd - 1 byte
+session id - 1 byte
+```
+
+## ALL_ENTITIES [SERVER RELIABLE] (Client to start rendering upon receiving)
+asteroids will be sent from here for spawning
+```cpp
+cmd - 1 byte
+
+num active spaceships - 1 byte
+
+// for n spaceships
+session id spaceship belongs to - 1 byte
+pos x - 4 bytes [float]
+pos y - 4 bytes[float]
+rotation - 4 bytes [float]
+lives left - 1 byte
+
+// for n bullets
+session id bullet belongs to - 1 byte
+pos x - 4 bytes[float]
+pos y - 4 bytes[float]
+
+// for n asteroids
+pos x - 4 bytes [float]
+pos y - 4 bytes [float]
+```
+
+## ACK_ALL_ENTITIES [CLIENT] 
+```cpp
+cmd - 1 byte
+session id - 1 byte
+```
+
+## END_GAME [SERVER RELIABLE]
+```cpp
+cmd - 1 byte
+```
+
+## ACK_END_GAME [CLIENT]
+```
+cmd - 1 byte
+session id - 1 byte
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # i think can just print this to pdf through browser for design doc?
 
 Note: all vectors will not be normalized (normalized vector * velocity) to save bytes passed
@@ -108,7 +252,7 @@ Server response:
 - session ID [1 byte]
 - broadcast port [2 bytes]
 - spawn location in xy coords [8 bytes signed] - use float with mantissa/exponent
-- spawn rotation in degrees [2 bytes int]
+- spawn rotation in degrees [4 bytes float]
 - num lives [1 byte]
 
 Client response:
@@ -120,7 +264,7 @@ Client response:
 1. Any client sends `REQ_START_GAME` request to server
 2. Server sends `START_GAME` response to all clients
 3. Client sends `ACK_START_GAME` and starts game (allow players to move and shoot), and 1 byte for SESSION_ID
-4. Server receives `ACK_START_GAME`, else times out and send requests again. If no response if 5 seconds, disconnects client
+4. Server receives `ACK_START_GAME`, else times out and send requests again. If no response if 5 sec  onds, disconnects client
 
 ## On every frame
 
@@ -131,11 +275,11 @@ Client response:
 - session ID
   1 byte
 - Position xy coords 
-  - 4 bytes (2 bytes each)
+  - 8 bytes (4 bytes each)
 - Vector
   - 8 bytes (4 bytes each)
-- Rotation (unsigned in degrees)
-  - 2 bytes
+- Rotation (float in degrees)
+  - 4 bytes
 - Lives left
 
 
@@ -182,8 +326,8 @@ for each asteroid
         - 4 bytes (2 bytes each)
       - Vector
         - 8 bytes (4 bytes each)
-      - Rotation (unsigned in degrees)
-        - 2 bytes
+      - Rotation (float in degrees)
+        - 4 bytes
       - Lives left
         - 1 byte
 
