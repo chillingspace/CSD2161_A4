@@ -84,6 +84,12 @@
       <AdditionalLibraryDirectories>$(SolutionDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>sfml-graphics-d.lib;sfml-window-d.lib;sfml-system-d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\openal32.dll" "$(TargetDir)"
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-window-d-2.dll" "$(TargetDir)"
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-system-d-2.dll" "$(TargetDir)"
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-graphics-d-2.dll" "$(TargetDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -104,6 +110,13 @@
       <AdditionalLibraryDirectories>$(SolutionDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>sfml-graphics.lib;sfml-window.lib;sfml-system.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\openal32.dll" "$(TargetDir)"
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-window-2.dll" "$(TargetDir)"
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-system-2.dll" "$(TargetDir)" 
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-graphics-2.dll" "$(TargetDir)"
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -120,6 +133,12 @@
       <AdditionalLibraryDirectories>$(SolutionDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>sfml-graphics-d.lib;sfml-window-d.lib;sfml-system-d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\openal32.dll" "$(TargetDir)"
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-window-d-2.dll" "$(TargetDir)"
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-system-d-2.dll" "$(TargetDir)"
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-graphics-d-2.dll" "$(TargetDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -140,6 +159,13 @@
       <AdditionalLibraryDirectories>$(SolutionDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>sfml-graphics.lib;sfml-window.lib;sfml-system.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\openal32.dll" "$(TargetDir)"
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-window-2.dll" "$(TargetDir)"
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-system-2.dll" "$(TargetDir)" 
+cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-graphics-2.dll" "$(TargetDir)"
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="asteroids.cpp" />
