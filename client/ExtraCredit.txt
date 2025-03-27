@@ -1,6 +1,0 @@
-- Added a restart button when game is over, by pressing "R"
-- Added printing of text to screen
-- Added 3 shooting types, which can be selected using 1,2,3
-1 = regular shot (shoots regularly)
-2 = double shot	(shoots two bullets but slightly slower)
-3 = triple shot (shoots three bullets but even slower)

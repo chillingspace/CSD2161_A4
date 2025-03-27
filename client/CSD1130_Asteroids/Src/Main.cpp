@@ -12,14 +12,62 @@ prior written consent of DigiPen Institute of Technology is prohibited.
  */
  /******************************************************************************/
 
+//#include <winsock2.h>  // Include first
+#include <ws2tcpip.h>  // Additional networking functions
+#include <Windows.h>   // Include after winsock2.h
+
 #include "main.h"
 #include <memory>
+#include <iostream>
 
+#pragma comment(lib, "ws2_32.lib")
 // ---------------------------------------------------------------------------
 // Globals
 float	 g_dt;
 double	 g_appTime;
 
+SOCKET clientSocket;
+sockaddr_in serverAddr;
+
+
+void InitClient()
+{
+	WSADATA wsa;
+	WSAStartup(MAKEWORD(2, 2), &wsa);
+
+	clientSocket = socket(AF_INET, SOCK_DGRAM, 0);
+	if (clientSocket == INVALID_SOCKET)
+	{
+		std::cerr << "Failed to create socket!\n";
+		return;
+	}
+
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_port = htons(54000);
+	inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
+
+
+	std::cout << "Client initialized. Ready to send input to server.\n";
+}
+
+void SendInput(const std::string& input)
+{
+	sendto(clientSocket, input.c_str(), input.size(), 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
+}
+
+void ReceiveGameState()
+{
+	char buffer[1024];
+	int serverSize = sizeof(serverAddr);
+	int bytesReceived = recvfrom(clientSocket, buffer, 1024, 0, (sockaddr*)&serverAddr, &serverSize);
+
+	if (bytesReceived > 0)
+	{
+		buffer[bytesReceived] = '\0';
+		std::cout << "Game State: " << buffer << std::endl;
+		// TODO: Apply received game state to game objects
+	}
+}
 
 /******************************************************************************/
 /*!
@@ -50,7 +98,7 @@ int WINAPI WinMain(HINSTANCE instanceH, HINSTANCE prevInstanceH, LPSTR command_l
 	AEGfxSetBackgroundColor(0.0f, 0.0f, 0.0f);
 
 
-
+	InitClient(); // Initialize UDP client
 	GameStateMgrInit(GS_ASTEROIDS);
 
 	while(gGameStateCurr != GS_QUIT)
@@ -80,6 +128,10 @@ int WINAPI WinMain(HINSTANCE instanceH, HINSTANCE prevInstanceH, LPSTR command_l
 			
 			AESysFrameEnd();
 
+			// Send input to server (Example: Move command)
+			SendInput("MOVE_RIGHT");
+			ReceiveGameState(); // Receive latest game state
+
 			// check if forcing the application to quit
 			if ((AESysDoesWindowExist() == false) || AEInputCheckTriggered(AEVK_ESCAPE))
 				gGameStateNext = GS_QUIT;
@@ -98,5 +150,7 @@ int WINAPI WinMain(HINSTANCE instanceH, HINSTANCE prevInstanceH, LPSTR command_l
 	}
 
 	// free the system
+	closesocket(clientSocket);
+	WSACleanup();
 	AESysExit();
 }
