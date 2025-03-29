@@ -6,22 +6,23 @@
 std::vector<Entity*> GameLogic::entities{};
 std::list<Entity*> GameLogic::entitiesToDelete{};
 std::list<Entity*> GameLogic::entitiesToAdd{};
+std::vector<Player*> GameLogic::players{};
 
 float GameLogic::game_timer;
 bool GameLogic::is_game_over;
-int GameLogic::score;
+
 float GameLogic::asteroid_spawn_time;
 
-sf::Text GameLogic::game_over_text;
-sf::Text GameLogic::score_text;
-sf::Font GameLogic::font;
+sf::Font font;
+sf::Text game_over_text;
+sf::Text player_score_text;
 
 void GameLogic::init() {
     // Score Init
     font.loadFromFile("Arial Italic.ttf");
-    score_text.setFont(font);
-    score_text.setPosition(sf::Vector2f(40.f, 20.f));
-    score_text.setCharacterSize(30);
+
+    player_score_text.setFont(font);
+    player_score_text.setCharacterSize(30);
 
     game_over_text.setFont(font);
     game_over_text.setFillColor(sf::Color::Red);
@@ -32,9 +33,24 @@ void GameLogic::init() {
 void GameLogic::start() {
     is_game_over = false;
     asteroid_spawn_time = ASTEROID_SPAWN_TIME;
-    entitiesToAdd.push_back(new Player());
+    players.clear();
+
+    std::vector<sf::Color> player_colors = {
+        sf::Color::White,
+        sf::Color::Blue,
+        sf::Color::Green,
+        sf::Color::Yellow
+    };
+
+    // Add players with different colors
+    for (size_t i = 0; i < player_colors.size(); i++) {
+        Player* new_player = new Player(i+1, player_colors[i]);
+        players.push_back(new_player);
+        entitiesToAdd.push_back(new_player);
+    }
+
     entitiesToAdd.push_back(new Asteroid());
-    game_timer = 10.f; // Game lasts for 60 seconds (adjust as needed)
+    game_timer = 60.f; // Game lasts for 60 seconds (adjust as needed)
 
 }
 
@@ -70,12 +86,21 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
     }
     entitiesToDelete.clear();
     
-    if (asteroid_spawn_time <= 0.f && entities.size() <= 10) {
+    if (asteroid_spawn_time <= 0.f && entities.size() <= 12) {
+        entities.push_back(new Asteroid());
         entities.push_back(new Asteroid());
         asteroid_spawn_time = ASTEROID_SPAWN_TIME;
     }
 
-    score_text.setString("P1\nScore: " + std::to_string(score));
+    int i = 0;
+    for (Player* player : players) {
+        player_score_text.setPosition(sf::Vector2f(40.f, 20.f + (i * 80.f)));
+        player_score_text.setString("P" + std::to_string(i + 1) + "\nScore: " + std::to_string(player->score));
+        player_score_text.setFillColor(player->player_color);
+        window.draw(player_score_text);
+        i++;
+    }
+
     // Show timer on screen
     sf::Text timer_text;
     timer_text.setFont(font);
@@ -84,7 +109,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
     timer_text.setString("Time: " + std::to_string(static_cast<int>(game_timer))); // Convert to int for display
 
 
-    window.draw(score_text);
     window.draw(timer_text);
 
     if (is_game_over) {

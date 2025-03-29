@@ -1,7 +1,7 @@
 #include "Bullet.h"
 #include "GameLogic.h"
-
-Bullet::Bullet(sf::Vector2f pos, sf::Vector2f dir) : shape(1.f), direction(dir), Entity(pos, 0.f), lifetime(BULLET_LIFETIME) {}
+#include "Player.h"
+Bullet::Bullet(sf::Vector2f pos, sf::Vector2f dir, Player* owner) : shape(1.f), direction(dir), Entity(pos, 0.f), lifetime(BULLET_LIFETIME), owner(owner) {}
 
 void Bullet::update(float delta_time)
 {
@@ -20,7 +20,9 @@ void Bullet::update(float delta_time)
             // Destroy or break the asteroid
             GameLogic::entitiesToDelete.push_back(asteroid);
 
-            GameLogic::score += 10;
+            if (owner) {
+                owner->score += 10;
+            }
 
             break; // Exit the loop once we find a collision
         }

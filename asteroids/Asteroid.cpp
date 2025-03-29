@@ -67,4 +67,3 @@ void Asteroid::spawnOnEdge()
     velocity *= ASTEROID_SPEED; // Scale velocity
 }
 
-;
