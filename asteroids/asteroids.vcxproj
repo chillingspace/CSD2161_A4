@@ -168,7 +168,23 @@ cmd /c xcopy /Y /D /Q "$(SolutionDir)lib\sfml-graphics-2.dll" "$(TargetDir)"
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="asteroids.cpp" />
+    <ClCompile Include="Asteroid.cpp" />
+    <ClCompile Include="GameLogic.cpp" />
+    <ClCompile Include="Global.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Bullet.cpp" />
+    <ClCompile Include="Player.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Asteroid.h" />
+    <ClInclude Include="GameLogic.h" />
+    <ClInclude Include="Bullet.h" />
+    <ClInclude Include="Entity.h" />
+    <ClInclude Include="Global.h" />
+    <ClInclude Include="Player.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Font Include="Arial Italic.ttf" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
