@@ -473,6 +473,7 @@ void udpListener() {
 			isAck = true;
 			std::lock_guard<std::mutex> acklock(ack_conn_request_clients_mutex);
 			ack_conn_request_clients.insert(sid);
+			std::cout << "Client with SID " << sid << " acknowledged connection request." << std::endl;
 			break;
 		}
 		case ACK_START_GAME: {
@@ -538,6 +539,8 @@ void requestHandler() {
 
 			switch (cmd) {
 			case CONN_REQUEST: {
+				std::cout << "Received connection request from client." << std::endl;
+
 				if (udp_clients.size() >= MAX_PLAYERS) {
 					sbuf[0] = CONN_REJECTED;
 					sendData(sbuf, senderAddr);
@@ -585,10 +588,12 @@ void requestHandler() {
 				sbuf[buf_idx++] = starting_lives;
 
 				sendData(sbuf, senderAddr);
+				std::cout << "Connection accepted. Sent data to client." << std::endl;
 
 				break;
 			}
 			case REQ_START_GAME: {
+				std::cout << "Received start game request." << std::endl;
 				std::vector<char> buf(MAX_PACKET_SIZE);
 				buf.resize(MAX_PACKET_SIZE);
 

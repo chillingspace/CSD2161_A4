@@ -11,7 +11,6 @@ int main()
     std::cout << "SFML Window Created Successfully!\n";
 
     GameLogic::init();
-    GameLogic::start();
 
     // Main loop
     while (window.isOpen())
