@@ -440,19 +440,16 @@ void Server::requestHandler() {
 				break;
 			}
 			case SELF_SPACESHIP: {
-				Game::Data data_copy;
-				{
-					std::lock_guard<std::mutex> lock(Game::getInstance().data_mutex);
-					data_copy = Game::getInstance().data;
-				}
+				// locking for this entire block to prevent overwriting from gameUpdate
+				std::lock_guard<std::mutex> lock(Game::getInstance().data_mutex);
 
 				const SESSION_ID sid = rbuf[1];
 
 				int idx = 2;
 
 				auto spaceship = std::find_if(
-					data_copy.spaceships.begin(), 
-					data_copy.spaceships.end(), 
+					Game::getInstance().data.spaceships.begin(), 
+					Game::getInstance().data.spaceships.end(), 
 					[&sid](const Game::Spaceship& s) { return s.sid == sid; }
 				);
 
@@ -480,9 +477,6 @@ void Server::requestHandler() {
 				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
 				spaceship->rotation = btof(bytes);
 				idx += (int)sizeof(float);
-
-				// lives
-				spaceship->lives_left = rbuf[idx++];
 
 				// num new bullets fired
 				const int new_bullets = rbuf[idx++];
@@ -512,13 +506,9 @@ void Server::requestHandler() {
 					b.vector.y = btof(bytes);
 					idx += (int)sizeof(float);
 
-					data_copy.bullets.push_back(b);
+					Game::getInstance().data.bullets.push_back(b);
 				}
 
-				{
-					std::lock_guard<std::mutex> lock(Game::getInstance().data_mutex);
-					Game::getInstance().data = data_copy;
-				}
 			}
 			}
 		}

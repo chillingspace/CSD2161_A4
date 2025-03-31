@@ -121,6 +121,7 @@ session id - 1 byte
 ## END_GAME [SERVER RELIABLE]
 ```cpp
 cmd - 1 byte
+winner session id - 1 byte
 ```
 
 ## ACK_END_GAME [CLIENT]
