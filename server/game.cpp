@@ -22,7 +22,7 @@ void Game::updateGame() {
 		// sleep to not lock Game::data permanently
 		static constexpr int SLEEP_DURATION = 1000 / Server::TICK_RATE;
 		std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION));
-
+		static std::vector<char> dbytes;
 
 		// wont use a copy to avoid overwriting. 
 		// will have to run fn on a separate timed thread
@@ -109,7 +109,20 @@ void Game::updateGame() {
 
 			// update last updated time
 			data.last_updated = std::chrono::high_resolution_clock::now();
+
+			// update sending buffer
+			dbytes = data.toBytes();
 		}
+
+		// data update is done, send to clients
+
+		// prepare payload
+		static std::vector<char> sbuf(Server::MAX_PACKET_SIZE);
+		sbuf.push_back(Server::ALL_ENTITIES);
+		sbuf.insert(sbuf.end(), dbytes.begin(), dbytes.end());
+
+		// broadcast data
+		Server::getInstance().broadcastData(sbuf);
 	}
 }
 
@@ -137,6 +150,8 @@ std::vector<char> Game::Data::toBytes() {
 		buf.insert(buf.end(), bytes.begin(), bytes.end());	// rotation in degrees (4 bytes)
 
 		buf.push_back(s.lives_left);						// lives left (1 byte)
+
+		buf.push_back(s.score);								// score (1 byte)
 	}
 
 	// num bullets
