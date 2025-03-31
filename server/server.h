@@ -47,7 +47,7 @@ public:
 	std::mutex _stdoutMutex;
 
 	// server stuff
-	char serverIPAddr[MAX_PACKET_SIZE];
+	char serverIPAddr[MAX_PACKET_SIZE]{};
 	int serverUdpPort{};
 	int serverUdpPortBroadcast{};
 	addrinfo* udp_info = nullptr;
@@ -58,8 +58,8 @@ public:
 	SOCKET udp_socket{};
 	SOCKET udp_socket_broadcast{};
 
-	std::unordered_map<SESSION_ID, sockaddr_in> udp_clients;
-	std::mutex udp_clients_mutex;
+	std::unordered_map<SESSION_ID, sockaddr_in> udp_clients{};
+	std::mutex udp_clients_mutex{};
 
 	bool udpListenerRunning = true;
 

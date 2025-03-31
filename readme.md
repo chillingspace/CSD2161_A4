@@ -63,14 +63,14 @@ vector x - 4 bytes
 vector y - 4 bytes
 
 // second, third bullet etc
-
-num new asteroids destroyed - 1 byte (gotta keep track, if server does not ack, store data and send again next frame)
-
-// first asteroid
-asteroid id - 4 bytes
-
-// second, third asteroid destroyed etc
 ```
+
+~~num new asteroids destroyed - 1 byte (gotta keep track, if server does not ack, store data and send again next frame)~~
+
+~~asteroid id - 4 bytes~~
+
+<details>
+<summary>removed</summary>
 
 ## ACK_SELF_SPACESHIP [SERVER RELIABLE]
 ```cpp
@@ -85,6 +85,7 @@ eg. bullet fired this frame, not received by server, hence resend this bullet ne
 cmd - 1 byte
 session id - 1 byte
 ```
+</details>
 
 ## ALL_ENTITIES [SERVER RELIABLE] (Client to start rendering upon receiving)
 asteroids will be sent from here for spawning
@@ -99,6 +100,7 @@ pos x - 4 bytes [float]
 pos y - 4 bytes[float]
 rotation - 4 bytes [float]
 lives left - 1 byte
+score - 1 byte
 
 // for n bullets
 session id bullet belongs to - 1 byte
@@ -126,10 +128,6 @@ cmd - 1 byte
 cmd - 1 byte
 session id - 1 byte
 ```
-
-
-
-
 
 
 
