@@ -8,7 +8,7 @@ Game& Game::getInstance() {
 
 /**
  * locks Game::data variable for the whole function call.
- * 
+ *
  */
 void Game::updateGame() {
 	// make a copy of Game data to avoid locking resource for too long
@@ -30,10 +30,21 @@ void Game::updateGame() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION));
 		static std::vector<char> dbytes;
 
+		int num_spaceships{};
+		int num_dead_spaceships{};
+
 		// wont use a copy to avoid overwriting. 
 		// will have to run fn on a separate timed thread
 		{
 			std::lock_guard<std::mutex> lock(data_mutex);
+
+			num_spaceships = (int)data.spaceships.size();
+			num_dead_spaceships = std::accumulate(
+				data.spaceships.begin(),
+				data.spaceships.end(),
+				0,
+				[](int n, const Spaceship& s) { return n + (s.lives_left ? 0 : 1); }
+			);
 
 			auto now = std::chrono::high_resolution_clock::now();
 			const float dt = std::chrono::duration_cast<std::chrono::duration<float>>(now - data.last_updated).count();
@@ -69,9 +80,10 @@ void Game::updateGame() {
 					auto owner = std::find_if(data.spaceships.begin(), data.spaceships.end(), [&b](const Spaceship& s) {return s.sid == b.sid; });
 
 					if (owner == data.spaceships.end()) {
+						// possibly player got disconnected (unlikely to happen because of timeout duration)
 						constexpr const char* err = "Bullet owner(spaceship) does not exist";
 						std::cerr << err << std::endl;
-						throw std::runtime_error(err);
+						//throw std::runtime_error(err);
 					}
 
 					++owner->score;
@@ -88,6 +100,11 @@ void Game::updateGame() {
 				// check for collision with spaceship
 				for (auto s_it = data.spaceships.begin(); s_it != data.spaceships.end();) {
 					const Spaceship& s = *s_it;
+
+					if (s.lives_left <= 0) {
+						// dont update for dead spaceships
+						continue;
+					}
 
 					if (!circleCollision({ s.pos, s.radius }, { a.pos, a.radius })) {
 						++s_it;
@@ -134,6 +151,11 @@ void Game::updateGame() {
 		elapsed = std::chrono::high_resolution_clock::now() - start;
 
 		if (elapsed.count() > GAME_DURATION_S * 1000) {
+			gameRunning = false;
+		}
+
+		// check if all spaceships are dead(out of lives)
+		if (num_dead_spaceships == num_spaceships) {
 			gameRunning = false;
 		}
 	}
@@ -287,7 +309,7 @@ std::vector<char> Game::Data::toBytes() {
 bool Game::circleCollision(Circle c1, Circle c2) {
 	const float rsq = powf(max(c1.radius, c2.radius), 2.f);
 	const float lsq = (c2.pos - c1.pos).lengthSq();
-	
+
 	return lsq >= rsq;
 }
 
