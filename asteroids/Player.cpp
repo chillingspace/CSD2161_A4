@@ -3,7 +3,7 @@
 #include "Global.h"
 #include "GameLogic.h"
 
-Player::Player(int uid, sf::Color player_color) : Entity(sf::Vector2f(500.f, 500.f), 0.f), uid(uid), score(0), is_alive(true), death_timer(0.f), invulnerability_timer(0.f), vertices(sf::Triangles, 3), shot_timer(), player_color(player_color) {
+Player::Player(int uid, sf::Color player_color) : Entity(sf::Vector2f(500.f, 500.f), 0.f), vertices(sf::Triangles, 3), uid(uid), score(0), is_alive(true), death_timer(0.f), invulnerability_timer(0.f), shot_timer(), player_color(player_color), velocity(sf::Vector2f(0.f,0.f)) {
     vertices[0].position = sf::Vector2f(20, 0);   // Tip of the ship
     vertices[1].position = sf::Vector2f(-20, -15); // Bottom left
     vertices[2].position = sf::Vector2f(-20, 15);  // Bottom right
@@ -13,6 +13,7 @@ Player::Player(int uid, sf::Color player_color) : Entity(sf::Vector2f(500.f, 500
     }
 }
 
+// TO BE MOVED TO SERVER
 void Player::update(float delta_time)
 {
     if (!is_alive) {
@@ -49,9 +50,18 @@ void Player::update(float delta_time)
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
         float radians = angle * (M_PI / 180.f);
-        position.x += cos(radians) * PLAYER_SPEED * delta_time;
-        position.y += sin(radians) * PLAYER_SPEED * delta_time;
+        velocity.x += cos(radians) * ACCELERATION * delta_time;
+        velocity.y += sin(radians) * ACCELERATION * delta_time;
     }
+
+    // Apply gradual friction to slow down
+    float friction_factor = 1.0f - (FRICTION * delta_time);
+    friction_factor = std::max(friction_factor, 0.0f);  // Prevent negative scaling
+
+    velocity.x *= friction_factor;
+    velocity.y *= friction_factor;
+    // Update position based on velocity
+    position += velocity * delta_time;
 
     wrapAround(position);
 
@@ -84,17 +94,21 @@ void Player::render(sf::RenderWindow& window)
     drawWithWraparound(window, vertices, position, angle);
 };
 
+// TO BE MOVED TO SERVER
 void Player::death() {
     is_alive = false;
     death_timer = DEATH_TIMER;
     invulnerability_timer = 0.f;
 }
 
+// TO BE MOVED TO SERVER
 void Player::respawn() {
     is_alive = true;
     invulnerability_timer = INVULNERABILITY_TIME;
+
     position = sf::Vector2f(SCREEN_WIDTH / 2.f, SCREEN_HEIGHT / 2.f);
     angle = 0.f;
+    velocity = sf::Vector2f(0.f, 0.f);
 
     vertices[0].position = sf::Vector2f(20, 0);   // Tip of the ship
     vertices[1].position = sf::Vector2f(-20, -15); // Bottom left

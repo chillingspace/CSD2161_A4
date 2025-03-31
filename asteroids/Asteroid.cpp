@@ -30,6 +30,7 @@ Asteroid::Asteroid() : Entity(sf::Vector2f(0, 0), 0.f) {
 
 }
 
+// TO BE MOVED TO SERVER
 void Asteroid::update(float delta_time) {
     angle += ASTEROID_SPIN * delta_time;
     position += ASTEROID_SPEED * velocity * delta_time;
@@ -43,6 +44,7 @@ void Asteroid::render(sf::RenderWindow& window)
     //drawWithWraparound(window, shape, position, angle);
 }
 
+// TO BE MOVED TO SERVER
 void Asteroid::spawnOnEdge()
 {
     int edge = rand() % 4; // 0 = top, 1 = bottom, 2 = left, 3 = right
