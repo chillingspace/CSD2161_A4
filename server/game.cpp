@@ -200,6 +200,10 @@ void Game::updateGame() {
 				if (num_acked == expected_acks) {
 					std::lock_guard<std::mutex> stdoutLock(Server::getInstance()._stdoutMutex);
 					std::cout << "All clients ACKed END_GAME command" << std::endl;
+					{
+						std::lock_guard<std::mutex> aegclock(Server::getInstance().ack_end_game_clients_mutex);
+						Server::getInstance().ack_end_game_clients.clear();
+					}
 					break;
 				}
 
@@ -232,6 +236,11 @@ void Game::updateGame() {
 							// spaceship(client) did not ack, remove
 							it = data.spaceships.erase(it);
 						}
+					}
+
+					{
+						std::lock_guard<std::mutex> aegclock(Server::getInstance().ack_end_game_clients_mutex);
+						Server::getInstance().ack_end_game_clients.clear();
 					}
 				}
 			}

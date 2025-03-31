@@ -382,6 +382,7 @@ void Server::requestHandler() {
 							std::lock_guard<std::mutex> conn_req_lock(ack_conn_request_clients_mutex);
 							if (ack_conn_request_clients.find(sid) != ack_conn_request_clients.end()) {
 								// client has acked.
+								ack_conn_request_clients.erase(sid);
 								break;
 							}
 						}
