@@ -18,238 +18,14 @@ prior written consent of DigiPen Institute of Technology is prohibited.
  * A multi-threaded TCP/IP server application with non-blocking sockets
  ******************************************************************************/
 
-#define VERBOSE_LOGGING
-
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-
-#include "Windows.h"		// Entire Win32 API...
- // #include "winsock2.h"	// ...or Winsock alone
-#include "ws2tcpip.h"		// getaddrinfo()
-
-// Tell the Visual Studio linker to include the following library in linking.
-// Alternatively, we could add this file to the linker command-line parameters,
-// but including it in the source code simplifies the configuration.
-#pragma comment(lib, "ws2_32.lib")
-
-#include <iostream>			// cout, cerr
-#include <string>			// string
-#include <unordered_map>
-#include <sstream>
-#include <fstream>
-#include <atomic>
-#include <csignal>
-#include <filesystem>
-#include <algorithm>
-#include <numeric>
-#include <thread>
-#include <unordered_set>
-#include <chrono>
-#include <mutex>
-#include <deque>
-#include <bitset>
-
-using SESSION_ID = int;
-
-constexpr int MAX_PACKET_SIZE = 1000;
-
-std::mutex _stdoutMutex;
-
-// server stuff
-char serverIPAddr[MAX_PACKET_SIZE];
-int serverUdpPort{};
-int serverUdpPortBroadcast{};
-addrinfo* udp_info = nullptr;
-std::mutex udp_info_mutex;
-
-// udp stuff
-SESSION_ID session_id{};
-SOCKET udp_socket{};
-SOCKET udp_socket_broadcast{};
-
-std::unordered_map<SESSION_ID, sockaddr_in> udp_clients;
-std::mutex udp_clients_mutex;
-
-bool udpListenerRunning = true;
-
-// ack stuff
-std::unordered_set<SESSION_ID> ack_start_game_clients;
-std::mutex ack_start_game_clients_mutex;
-
-std::unordered_set<SESSION_ID> ack_conn_request_clients;
-std::mutex ack_conn_request_clients_mutex;
-
-std::unordered_set<SESSION_ID> ack_self_spaceship_clients;
-std::mutex ack_self_spaceship_clients_mutex;
-
-std::unordered_set<SESSION_ID> ack_all_entities_clients;
-std::mutex ack_all_entities_clients_mutex;
-
-std::unordered_set<SESSION_ID> ack_end_game_clients;
-std::mutex ack_end_game_clients_mutex;
-
-std::unordered_map<SESSION_ID, float> client_last_request_time;		// used to timeout client connection
-std::mutex client_last_request_time_mutex;
-
-std::vector<SESSION_ID> active_sessions;
-std::mutex active_sessions_mutex;
-
-// timeout stuff
-constexpr int DISCONNECTION_TIMEOUT_DURATION_MS = 15000;
-constexpr int TIMEOUT_MS = 200;		// timeout before retrying
-
-// recv stuff
-constexpr int MAX_PACKET_QUEUE = 100;
-std::deque<std::pair<sockaddr_in, std::vector<char>>> recvbuffer_queue;
-std::mutex recvbuffer_queue_mutex;
-
-// game stuff
-constexpr int MAX_PLAYERS = 4;
-
-// for ALL_ENTITIES payload
-struct vec2 {
-	union {
-		struct { float x, y; };
-		float raw[2];
-	};
-};
+#include "server.h"
+#include "game.h"
 
 
-struct Asteroid {
-	vec2 pos;
-	vec2 vector;
-};
-
-struct Bullet : public Asteroid {
-	SESSION_ID sid;
-};
-
-struct Spaceship : public Bullet {
-	float rotation;
-	int lives_left;
-};
-
-class Game {
-public:
-	std::vector<Spaceship> spaceships;
-	std::vector<Bullet> bullets;
-	std::vector<Asteroid> asteroids;
-
-	std::vector<char> toBytes();
-};
-
-
-void emptyfn() {}
-
-enum CLIENT_REQUESTS {
-	CONN_REQUEST = 0,
-	ACK_CONN_REQUEST,
-	REQ_START_GAME,
-	ACK_START_GAME,
-	ACK_ACK_SELF_SPACESHIP,
-	SELF_SPACESHIP,
-	ACK_ALL_ENTITIES,
-	ACK_END_GAME
-};
-
-enum SERVER_MSGS {
-	CONN_ACCEPTED = 0,
-	CONN_REJECTED,
-	START_GAME,
-	ACK_SELF_SPACESHIP,
-	ALL_ENTITIES,
-	END_GAME
-};
-
-struct Client {
-	int sessionId;
-
-	std::string ip;
-	std::string port;
-
-	char cip[4];
-	int iport;
-};
-std::unordered_map<SOCKET, Client> conns;
-std::mutex conns_mutex;
-
-template <typename T>
-std::vector<char> to_bytes(T num) {
-	std::vector<char> bytes(sizeof(T));
-
-	if constexpr (std::is_integral<T>::value) {
-		// for ints, convert to network byte order
-		num = htonl(num);
-		std::memcpy(bytes.data(), &num, sizeof(T));
-	}
-	else if constexpr (std::is_floating_point<T>::value) {
-		// For floats
-		unsigned int int_rep = *reinterpret_cast<unsigned int*>(&num);  // reinterpret float as unsigned int
-		int_rep = htonl(int_rep);
-		std::memcpy(bytes.data(), &int_rep, sizeof(T));
-	}
-
-	return bytes;
+Server& Server::getInstance() {
+	static Server instance;
+	return instance;
 }
-
-
-std::vector<char> Game::toBytes() {
-	std::vector<char> buf;
-
-	// num spaceships
-	buf.push_back((char)spaceships.size());
-	std::vector<char> bytes;
-
-	for (const Spaceship& s : spaceships) {
-		// only stuff integral to rendering/interaction is sent
-		// vector is not sent
-
-		buf.push_back(s.sid & 0xff);		// spaceship sid
-
-		bytes = to_bytes(s.pos.x);
-		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos x (4 bytes)
-
-		bytes = to_bytes(s.pos.y);
-		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos y (4 bytes)
-
-		bytes = to_bytes(s.rotation);
-		buf.insert(buf.end(), bytes.begin(), bytes.end());	// rotation in degrees (4 bytes)
-
-		buf.push_back(s.lives_left);						// lives left (1 byte)
-	}
-
-	// num bullets
-	buf.push_back((char)bullets.size());
-
-	for (const Bullet& b : bullets) {
-		// vector is not sent, not integral to rendering
-
-		buf.push_back(b.sid & 0xff);		// bullet sid
-
-		bytes = to_bytes(b.pos.x);
-		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos x (4 bytes)
-
-		bytes = to_bytes(b.pos.y);
-		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos y (4 bytes)
-	}
-
-	// num asteroids
-	buf.push_back((char)asteroids.size());
-
-	for (const Asteroid& a : asteroids) {
-		// vector not sent, not needed for rendering
-
-		bytes = to_bytes(a.pos.x);
-		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos x (4 bytes)
-
-		bytes = to_bytes(a.pos.y);
-		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos y (4 bytes)
-	}
-
-	return buf;
-}
-
 
 /**
  * send data with udp.
@@ -258,7 +34,7 @@ std::vector<char> Game::toBytes() {
  * \param dest_addr
  * \return
  */
-int sendData(const std::vector<char>& buffer, SESSION_ID sid) {
+int Server::sendData(const std::vector<char>& buffer, SESSION_ID sid) {
 	sockaddr_in* udp_addr_in = nullptr;
 	{
 		std::lock_guard<std::mutex> usersLock{ udp_clients_mutex };
@@ -297,7 +73,7 @@ int sendData(const std::vector<char>& buffer, SESSION_ID sid) {
 	return bytesSent;
 }
 
-int sendData(const std::vector<char>& buffer, sockaddr_in udp_addr_in) {
+int Server::sendData(const std::vector<char>& buffer, sockaddr_in udp_addr_in) {
 	if (udp_socket == INVALID_SOCKET) {
 		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
 		std::cerr << "Invalid socket." << std::endl;
@@ -317,7 +93,7 @@ int sendData(const std::vector<char>& buffer, sockaddr_in udp_addr_in) {
 	return bytesSent;
 }
 
-int broadcastData(const std::vector<char>& buffer) {
+int Server::broadcastData(const std::vector<char>& buffer) {
 	if (udp_socket_broadcast == INVALID_SOCKET) {
 		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
 		std::cerr << "Invalid socket." << std::endl;
@@ -344,11 +120,11 @@ int broadcastData(const std::vector<char>& buffer) {
 	return bytesSent;
 }
 
-int getSessionId() {
+int Server::getSessionId() {
 	return session_id++;
 }
 
-SOCKET createUdpSocket(int port, bool broadcast = false) {
+SOCKET Server::createUdpSocket(int port, bool broadcast) {
 	// Create a UDP socket
 	addrinfo hints{};
 	SecureZeroMemory(&hints, sizeof(hints));
@@ -428,7 +204,7 @@ SOCKET createUdpSocket(int port, bool broadcast = false) {
  * worker thread. should only be used in 1 thread in any given time.
  *
  */
-void udpListener() {
+void Server::udpListener() {
 	if (udp_socket == INVALID_SOCKET) {
 		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
 		std::cerr << "Invalid socket." << std::endl;
@@ -515,7 +291,7 @@ void udpListener() {
 }
 
 
-void requestHandler() {
+void Server::requestHandler() {
 
 	while (udpListenerRunning) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -541,7 +317,7 @@ void requestHandler() {
 			case CONN_REQUEST: {
 				std::cout << "Received connection request from client." << std::endl;
 
-				if (udp_clients.size() >= MAX_PLAYERS) {
+				if (udp_clients.size() >= Game::MAX_PLAYERS) {
 					sbuf[0] = CONN_REJECTED;
 					sendData(sbuf, senderAddr);
 					break;
@@ -569,9 +345,9 @@ void requestHandler() {
 				constexpr float spawnX = 0;
 				constexpr float spawnY = 0;
 
-				memcpy(sbuf.data() + buf_idx, to_bytes(spawnX).data(), sizeof(float));
+				memcpy(sbuf.data() + buf_idx, t_to_bytes(spawnX).data(), sizeof(float));
 				buf_idx += (int)sizeof(float) / 8;
-				memcpy(sbuf.data() + buf_idx, to_bytes(spawnY).data(), sizeof(float));
+				memcpy(sbuf.data() + buf_idx, t_to_bytes(spawnY).data(), sizeof(float));
 				buf_idx += (int)sizeof(float) / 8;
 
 				// spawn rotation
@@ -605,7 +381,7 @@ void requestHandler() {
 					num_conns = active_sessions.size();
 				}
 
-				auto bc = [&buf, num_conns]() {
+				auto bc = [this, &buf, num_conns]() {
 					int num_acks{};
 
 					auto start = std::chrono::high_resolution_clock::now();
@@ -663,18 +439,95 @@ void requestHandler() {
 				break;
 			}
 			case SELF_SPACESHIP: {
-				
+				Game::Data data_copy;
+				{
+					std::lock_guard<std::mutex> lock(Game::getInstance().data_mutex);
+					data_copy = Game::getInstance().data;
+				}
+
+				const SESSION_ID sid = rbuf[1];
+
+				int idx = 2;
+
+				auto spaceship = std::find_if(
+					data_copy.spaceships.begin(), 
+					data_copy.spaceships.end(), 
+					[&sid](const Game::Spaceship& s) { return s.sid == sid; }
+				);
+
+				// pos x
+				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				spaceship->pos.x = btof(bytes);
+				idx += (int)sizeof(float);
+
+				// pos y
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				spaceship->pos.y = btof(bytes);
+				idx += (int)sizeof(float);
+
+				// vector x
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				spaceship->vector.x = btof(bytes);
+				idx += (int)sizeof(float);
+
+				// vector y
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				spaceship->vector.y = btof(bytes);
+				idx += (int)sizeof(float);
+
+				// rotation
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				spaceship->rotation = btof(bytes);
+				idx += (int)sizeof(float);
+
+				// lives
+				spaceship->lives_left = rbuf[idx++];
+
+				// num new bullets fired
+				const int new_bullets = rbuf[idx++];
+
+				for (int i{}; i < new_bullets; i++) {
+					Game::Bullet b;
+
+					b.sid = sid;
+
+					// pos x
+					bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+					b.pos.x = btof(bytes);
+					idx += (int)sizeof(float);
+
+					// pos y
+					bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+					b.pos.y = btof(bytes);
+					idx += (int)sizeof(float);
+
+					// vector x
+					bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+					b.vector.x = btof(bytes);
+					idx += (int)sizeof(float);
+
+					// vector y
+					bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+					b.vector.y = btof(bytes);
+					idx += (int)sizeof(float);
+
+					data_copy.bullets.push_back(b);
+				}
+
+				{
+					std::lock_guard<std::mutex> lock(Game::getInstance().data_mutex);
+					Game::getInstance().data = data_copy;
+				}
 			}
 			}
 		}
 	}
 }
 
-int main()
-{
+
+int Server::init() {
 	std::string udpPortString;
 
-#define JS_DEBUG
 #ifndef JS_DEBUG
 	{
 		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
@@ -774,14 +627,14 @@ int main()
 		WSACleanup();
 		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
 		std::cerr << "Failed to create UDP socket" << std::endl;
-		return 4;
+		return 5;
 	}
 
 	// set udp socket to non-blocking
 	u_long mode = 1;
 	ioctlsocket(udp_socket, FIONBIO, &mode);
 
-	std::thread recvthread(udpListener);
+	std::thread recvthread(&Server::udpListener, this);
 
 	auto quitServer = []() {
 		// quit server if `q` is received
@@ -810,4 +663,6 @@ int main()
 	recvthread.join();
 
 	WSACleanup();
+
+	return 0;
 }
