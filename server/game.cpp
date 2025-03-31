@@ -48,15 +48,16 @@ void Game::updateGame() {
 			}
 
 			// check for collisions
-			for (auto b_it = data.bullets.begin(); b_it != data.bullets.end();) {
-				const Bullet& b = *b_it;
-				bool hasBulletCollided = false;
+			for (auto a_it = data.asteroids.begin(); a_it != data.asteroids.end();) {
+				const Asteroid& a = *a_it;
+				bool hasAsteroidCollided = false;
 
-				for (auto a_it = data.asteroids.begin(); a_it != data.asteroids.end();) {
-					const Asteroid& a = *a_it;
+				// check for collision with bullet
+				for (auto b_it = data.bullets.begin(); b_it != data.bullets.end();) {
+					const Bullet& b = *b_it;
 
 					if (!circleCollision({ b.pos, b.radius }, { a.pos, a.radius })) {
-						++a_it;
+						++b_it;
 						continue;
 					}
 					auto owner = std::find_if(data.spaceships.begin(), data.spaceships.end(), [&b](const Spaceship& s) {return s.sid == b.sid; });
@@ -68,17 +69,43 @@ void Game::updateGame() {
 					}
 
 					++owner->score;
-					a_it = data.asteroids.erase(a_it);
-					hasBulletCollided = true;
+					b_it = data.bullets.erase(b_it);
+					hasAsteroidCollided = true;
 					break;
 				}
-				if (hasBulletCollided) {
-					b_it = data.bullets.erase(b_it);
+
+				if (hasAsteroidCollided) {
+					a_it = data.asteroids.erase(a_it);
+					continue;
+				}
+
+				// check for collision with spaceship
+				for (auto s_it = data.spaceships.begin(); s_it != data.spaceships.end();) {
+					const Spaceship& s = *s_it;
+
+					if (!circleCollision({ s.pos, s.radius }, { a.pos, a.radius })) {
+						++s_it;
+						continue;
+					}
+
+					data.killSpaceship(s_it);
+					// !NOTE: wont be removed as need to keep track of score, client to handle dead spaceships
+					//if (s_it->lives_left <= 0) {
+					//	s_it = data.spaceships.erase(s_it);
+					//}
+					hasAsteroidCollided = true;
+					break;
+				}
+
+				if (hasAsteroidCollided) {
+					a_it = data.asteroids.erase(a_it);
+					continue;
 				}
 				else {
-					++b_it;
+					++a_it;
 				}
 			}
+
 
 			// update last updated time
 			data.last_updated = std::chrono::high_resolution_clock::now();
@@ -162,4 +189,11 @@ void Game::Data::reset() {
 		s.lives_left = Game::NUM_START_LIVES;
 		s.score = 0;
 	}
+}
+
+void Game::Data::killSpaceship(std::vector<Spaceship>::iterator& it) {
+	it->pos = { 0, 0 };
+	it->vector = { 0,0 };
+	it->rotation = 0.f;
+	it->lives_left--;
 }

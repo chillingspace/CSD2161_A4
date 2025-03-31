@@ -12,6 +12,8 @@ private:
 public:
 
 	static constexpr int NUM_START_LIVES = 3;
+	static constexpr float BULLET_RADIUS = 2.f;
+	static constexpr float SPACESHIP_RADIUS = 5.f;
 
 	static Game& getInstance();
 
@@ -59,7 +61,6 @@ public:
 		float radius{};
 	};
 
-	static constexpr float BULLET_RADIUS = 5.f;
 	struct Bullet : public Asteroid {
 		SESSION_ID sid{};
 		float radius{ BULLET_RADIUS };
@@ -83,6 +84,9 @@ public:
 		std::vector<char> toBytes();
 
 		void reset();
+
+		//void resetSpaceship(SESSION_ID sid);
+		void killSpaceship(std::vector<Spaceship>::iterator& it);
 	};
 
 	Data data;
