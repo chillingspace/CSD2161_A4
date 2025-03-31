@@ -419,6 +419,7 @@ void Server::requestHandler() {
 
 				buf[0] = START_GAME;
 				Game::getInstance().data.reset();
+				Game::getInstance().gameRunning = true;
 
 				int num_conns{};
 				{

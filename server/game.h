@@ -19,7 +19,7 @@ public:
 
 	static Game& getInstance();
 
-	bool gameRunning = true;		// for updateGame loop
+	bool gameRunning = false;		// for updateGame loop
 	bool gameThreadRunning = true;	// for updateGame loop thread
 
 	// game stuff
