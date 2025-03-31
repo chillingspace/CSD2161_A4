@@ -16,7 +16,12 @@ int main()
 	int serverExitCode = s.init();
 
 	std::thread recvthread([&s]() { s.udpListener(); });
-	std::thread gameUpdateThread([&]() {Game::getInstance().updateGame(); });
+	std::thread gameUpdateThread([&]() { 
+		while (Game::getInstance().gameThreadRunning) {
+			Game::getInstance().updateGame();
+		}
+		}
+	);
 
 	auto quitServerListener = []() {
 		// quit server if `q` is received
@@ -38,6 +43,7 @@ int main()
 	// free dynamically allocated memory
 	s.udpListenerRunning = false;
 	Game::getInstance().gameRunning = false;
+	Game::getInstance().gameThreadRunning = false;
 
 	recvthread.join();
 	gameUpdateThread.join();

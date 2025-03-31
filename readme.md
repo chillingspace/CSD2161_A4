@@ -85,6 +85,13 @@ eg. bullet fired this frame, not received by server, hence resend this bullet ne
 cmd - 1 byte
 session id - 1 byte
 ```
+
+## ACK_ALL_ENTITIES [CLIENT] 
+```cpp
+cmd - 1 byte
+session id - 1 byte
+```
+
 </details>
 
 ## ALL_ENTITIES [SERVER RELIABLE] (Client to start rendering upon receiving)
@@ -110,12 +117,6 @@ pos y - 4 bytes[float]
 // for n asteroids
 pos x - 4 bytes [float]
 pos y - 4 bytes [float]
-```
-
-## ACK_ALL_ENTITIES [CLIENT] 
-```cpp
-cmd - 1 byte
-session id - 1 byte
 ```
 
 ## END_GAME [SERVER RELIABLE]

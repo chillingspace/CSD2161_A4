@@ -17,8 +17,14 @@ void Game::updateGame() {
 	//	std::lock_guard<std::mutex> lock(data_mutex);
 	//	data_copy = data;
 	//}
-	while (gameRunning) {
 
+	std::chrono::duration<float> elapsed{};
+	auto start = std::chrono::high_resolution_clock::now();
+
+	static bool prevGameRunning = gameRunning;
+	prevGameRunning = gameRunning;
+
+	while (gameRunning) {
 		// sleep to not lock Game::data permanently
 		static constexpr int SLEEP_DURATION = 1000 / Server::TICK_RATE;
 		std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION));
@@ -123,6 +129,99 @@ void Game::updateGame() {
 
 		// broadcast data
 		Server::getInstance().broadcastData(sbuf);
+
+		// check elapsed time
+		elapsed = std::chrono::high_resolution_clock::now() - start;
+
+		if (elapsed.count() > GAME_DURATION_S * 1000) {
+			gameRunning = false;
+		}
+	}
+
+
+	if (prevGameRunning && !gameRunning) {
+		// game ended, find winner sid
+		// !NOTE: draw conditions not handled
+		std::pair<int, int> winner_sid_score{ -1, -1 };
+		{
+			std::lock_guard<std::mutex> datalock(data_mutex);
+			std::for_each(data.spaceships.begin(), data.spaceships.end(), [&winner_sid_score](const Spaceship& s) {
+				if (s.score > winner_sid_score.second) {
+					winner_sid_score.first = s.sid;
+					winner_sid_score.second = s.score;
+				}
+				}
+			);
+		}
+
+		std::vector<char> ebuf;
+		ebuf.push_back(Server::END_GAME);
+		ebuf.push_back(winner_sid_score.first);
+
+		auto reliable_bc = [this, &ebuf]() {
+			std::chrono::duration<float> elapsed;
+			auto start_bc_time = std::chrono::high_resolution_clock::now();
+
+			while (true) {
+				int num_acked{};
+				{
+					std::lock_guard<std::mutex> aegclock(Server::getInstance().ack_end_game_clients_mutex);
+					num_acked = (int)Server::getInstance().ack_end_game_clients.size();
+				}
+
+				int expected_acks{};
+				{
+					std::lock_guard<std::mutex> datalock(data_mutex);
+					expected_acks = (int)data.spaceships.size();
+				}
+
+				if (num_acked == expected_acks) {
+					std::lock_guard<std::mutex> stdoutLock(Server::getInstance()._stdoutMutex);
+					std::cout << "All clients ACKed END_GAME command" << std::endl;
+					break;
+				}
+
+				Server::getInstance().broadcastData(ebuf);
+
+				std::this_thread::sleep_for(std::chrono::milliseconds(Server::TIMEOUT_MS));
+
+				elapsed = std::chrono::high_resolution_clock::now() - start_bc_time;
+				if (elapsed.count() > Server::DISCONNECTION_TIMEOUT_DURATION_MS) {
+					// disconnect clients that did not ack
+					{
+						std::lock_guard<std::mutex> stdoutLock(Server::getInstance()._stdoutMutex);
+						std::cout << num_acked << "/" << expected_acks << " ACKed END_GAME command. Disconnecting timed out clients." << std::endl;
+					}
+
+					std::unordered_set<SESSION_ID> acked;
+					{
+						std::lock_guard<std::mutex> aegclock(Server::getInstance().ack_end_game_clients_mutex);
+						acked = Server::getInstance().ack_end_game_clients;
+					}
+
+					{
+						std::lock_guard<std::mutex> datalock2(data_mutex);
+						for (auto it = data.spaceships.begin(); it != data.spaceships.end();) {
+							if (acked.find(it->sid) != acked.end()) {
+								++it;
+								continue;
+							}
+
+							// spaceship(client) did not ack, remove
+							it = data.spaceships.erase(it);
+						}
+					}
+				}
+			}
+			};
+		reliable_bc();
+
+		{
+			std::lock_guard<std::mutex> lock(data_mutex);
+			data.reset();
+		}
+
+		prevGameRunning = gameRunning;
 	}
 }
 

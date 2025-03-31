@@ -14,10 +14,13 @@ public:
 	static constexpr int NUM_START_LIVES = 3;
 	static constexpr float BULLET_RADIUS = 2.f;
 	static constexpr float SPACESHIP_RADIUS = 5.f;
+	
+	static constexpr float GAME_DURATION_S = 60;
 
 	static Game& getInstance();
 
-	bool gameRunning = true;		// for updateGame loop thread
+	bool gameRunning = true;		// for updateGame loop
+	bool gameThreadRunning = true;	// for updateGame loop thread
 
 	// game stuff
 	static constexpr int MAX_PLAYERS = 4;

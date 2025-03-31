@@ -73,8 +73,8 @@ public:
 	std::unordered_set<SESSION_ID> ack_start_game_clients;
 	std::mutex ack_start_game_clients_mutex;
 
-	std::unordered_set<SESSION_ID> ack_all_entities_clients;
-	std::mutex ack_all_entities_clients_mutex;
+	//std::unordered_set<SESSION_ID> ack_all_entities_clients;
+	//std::mutex ack_all_entities_clients_mutex;
 
 	std::unordered_set<SESSION_ID> ack_end_game_clients;
 	std::mutex ack_end_game_clients_mutex;
@@ -98,7 +98,7 @@ public:
 		REQ_START_GAME,
 		ACK_START_GAME,
 		SELF_SPACESHIP,
-		ACK_ALL_ENTITIES,
+		//ACK_ALL_ENTITIES,
 		ACK_END_GAME,
 	};
 

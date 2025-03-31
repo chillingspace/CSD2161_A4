@@ -258,12 +258,12 @@ void Server::udpListener() {
 			ack_start_game_clients.insert(sid);
 			break;
 		}
-		case ACK_ALL_ENTITIES: {
-			isAck = true;
-			std::lock_guard<std::mutex> acklock(ack_all_entities_clients_mutex);
-			ack_all_entities_clients.insert(sid);
-			break;
-		}
+		//case ACK_ALL_ENTITIES: {
+		//	isAck = true;
+		//	std::lock_guard<std::mutex> acklock(ack_all_entities_clients_mutex);
+		//	ack_all_entities_clients.insert(sid);
+		//	break;
+		//}
 		case ACK_END_GAME: {
 			isAck = true;
 			std::lock_guard<std::mutex> acklock(ack_end_game_clients_mutex);
