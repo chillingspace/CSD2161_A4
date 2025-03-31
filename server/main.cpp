@@ -1,4 +1,5 @@
 #include "server.h"
+#include "game.h"
 
 
 #define VERBOSE_LOGGING
@@ -12,5 +13,36 @@
 int main()
 {
 	Server& s = Server::getInstance();
-	return s.init();
+	int serverExitCode = s.init();
+
+	std::thread recvthread([&s]() { s.udpListener(); });
+	std::thread gameUpdateThread([&]() {Game::getInstance().updateGame(); });
+
+	auto quitServerListener = []() {
+		// quit server if `q` is received
+
+		std::string ln;
+
+		while (ln != "q")
+			std::getline(std::cin, ln);
+		};
+	quitServerListener();
+
+	s.cleanup();
+
+	// ----------~---------------------------------------------------------------
+	// Clean-up after Winsock.
+	//
+	// WSACleanup()
+	// -------------------------------------------------------------------------
+	// free dynamically allocated memory
+	s.udpListenerRunning = false;
+	Game::getInstance().gameRunning = false;
+
+	recvthread.join();
+	gameUpdateThread.join();
+
+	WSACleanup();
+
+	return 0;
 }

@@ -42,6 +42,8 @@ public:
 
 	static Server& getInstance();
 
+	static constexpr int TICK_RATE = 20;
+
 	static constexpr int MAX_PACKET_SIZE = 1000;
 
 	std::mutex _stdoutMutex;
@@ -50,6 +52,7 @@ public:
 	char serverIPAddr[MAX_PACKET_SIZE]{};
 	int serverUdpPort{};
 	int serverUdpPortBroadcast{};
+	addrinfo* server_info = nullptr;
 	addrinfo* udp_info = nullptr;
 	std::mutex udp_info_mutex;
 
@@ -189,6 +192,8 @@ public:
 	void requestHandler();
 
 	int init();
+
+	void cleanup();
 };
 
 

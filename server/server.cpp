@@ -374,11 +374,12 @@ void Server::requestHandler() {
 				buf.resize(MAX_PACKET_SIZE);
 
 				buf[0] = START_GAME;
+				Game::getInstance().data.reset();
 
 				int num_conns{};
 				{
 					std::lock_guard<std::mutex> lock(active_sessions_mutex);
-					num_conns = active_sessions.size();
+					num_conns = (int)active_sessions.size();
 				}
 
 				auto bc = [this, &buf, num_conns]() {
@@ -588,9 +589,9 @@ int Server::init() {
 		return 1;
 	}
 
-	addrinfo* info = nullptr;
-	errorCode = getaddrinfo(hostname, udpPortString.c_str(), &hints, &info);
-	if ((errorCode) || (info == nullptr))
+	server_info = nullptr;
+	errorCode = getaddrinfo(hostname, udpPortString.c_str(), &hints, &server_info);
+	if ((errorCode) || (server_info == nullptr))
 	{
 		std::cerr << "getaddrinfo() failed." << std::endl;
 		WSACleanup();
@@ -598,9 +599,9 @@ int Server::init() {
 	}
 
 	/* PRINT SERVER IP ADDRESS AND PORT NUMBER */
-	struct sockaddr_in* serverAddress = reinterpret_cast<struct sockaddr_in*> (info->ai_addr);
+	struct sockaddr_in* serverAddress = reinterpret_cast<struct sockaddr_in*> (server_info->ai_addr);
 	inet_ntop(AF_INET, &(serverAddress->sin_addr), serverIPAddr, INET_ADDRSTRLEN);
-	getnameinfo(info->ai_addr, static_cast <socklen_t> (info->ai_addrlen), serverIPAddr, sizeof(serverIPAddr), nullptr, 0, NI_NUMERICHOST);
+	getnameinfo(server_info->ai_addr, static_cast <socklen_t> (server_info->ai_addrlen), serverIPAddr, sizeof(serverIPAddr), nullptr, 0, NI_NUMERICHOST);
 	{
 		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
 		std::cout << std::endl;
@@ -634,35 +635,14 @@ int Server::init() {
 	u_long mode = 1;
 	ioctlsocket(udp_socket, FIONBIO, &mode);
 
-	std::thread recvthread(&Server::udpListener, this);
+	return 0;
+}
 
-	auto quitServer = []() {
-		// quit server if `q` is received
 
-		std::string ln;
-
-		while (ln != "q")
-			std::getline(std::cin, ln);
-		};
-	quitServer();
-
-	freeaddrinfo(info);
+void Server::cleanup() {
+	freeaddrinfo(server_info);
 	{
 		std::lock_guard<std::mutex> udpInfoLock(udp_info_mutex);
 		freeaddrinfo(udp_info);
 	}
-
-	// -------------------------------------------------------------------------
-	// Clean-up after Winsock.
-	//
-	// WSACleanup()
-	// -------------------------------------------------------------------------
-	// free dynamically allocated memory
-	udpListenerRunning = false;
-
-	recvthread.join();
-
-	WSACleanup();
-
-	return 0;
 }

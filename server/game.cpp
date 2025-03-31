@@ -1,47 +1,88 @@
 #include "game.h"
+#include <stdexcept>
 
 Game& Game::getInstance() {
 	static Game game;
 	return game;
 }
 
+/**
+ * locks Game::data variable for the whole function call.
+ * 
+ */
 void Game::updateGame() {
 	// make a copy of Game data to avoid locking resource for too long
-	Data data_copy;
-	{
-		std::lock_guard<std::mutex> lock(data_mutex);
-		data_copy = data;
-	}
+	//Data data_copy;
+	//{
+	//	std::lock_guard<std::mutex> lock(data_mutex);
+	//	data_copy = data;
+	//}
+	while (gameRunning) {
 
-	auto now = std::chrono::high_resolution_clock::now();
-	const float dt = std::chrono::duration_cast<std::chrono::duration<float>>(now - data_copy.last_updated).count();
+		// sleep to not lock Game::data permanently
+		static constexpr int SLEEP_DURATION = 1000 / Server::TICK_RATE;
+		std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION));
 
-	// update spaceships
-	for (Spaceship& s : data_copy.spaceships) {
-		s.pos += s.vector;
-	}
 
-	// update bullets
-	for (Bullet& b : data_copy.bullets) {
-		b.pos += b.vector;
-	}
+		// wont use a copy to avoid overwriting. 
+		// will have to run fn on a separate timed thread
+		{
+			std::lock_guard<std::mutex> lock(data_mutex);
 
-	// update asteroids
-	for (Asteroid& a : data_copy.asteroids) {
-		a.pos += a.vector;
-	}
+			auto now = std::chrono::high_resolution_clock::now();
+			const float dt = std::chrono::duration_cast<std::chrono::duration<float>>(now - data.last_updated).count();
 
-	// check for collisions
-	for (const Bullet& b : data_copy.bullets) {
-		//for (const)
-	}
+			// update spaceships
+			for (Spaceship& s : data.spaceships) {
+				s.pos += s.vector;
+			}
 
-	// update last updated time
-	data_copy.last_updated = std::chrono::high_resolution_clock::now();
+			// update bullets
+			for (Bullet& b : data.bullets) {
+				b.pos += b.vector;
+			}
 
-	{
-		std::lock_guard<std::mutex> lock(data_mutex);
-		data = data_copy;
+			// update asteroids
+			for (Asteroid& a : data.asteroids) {
+				a.pos += a.vector;
+			}
+
+			// check for collisions
+			for (auto b_it = data.bullets.begin(); b_it != data.bullets.end();) {
+				const Bullet& b = *b_it;
+				bool hasBulletCollided = false;
+
+				for (auto a_it = data.asteroids.begin(); a_it != data.asteroids.end();) {
+					const Asteroid& a = *a_it;
+
+					if (!circleCollision({ b.pos, b.radius }, { a.pos, a.radius })) {
+						++a_it;
+						continue;
+					}
+					auto owner = std::find_if(data.spaceships.begin(), data.spaceships.end(), [&b](const Spaceship& s) {return s.sid == b.sid; });
+
+					if (owner == data.spaceships.end()) {
+						constexpr const char* err = "Bullet owner(spaceship) does not exist";
+						std::cerr << err << std::endl;
+						throw std::runtime_error(err);
+					}
+
+					++owner->score;
+					a_it = data.asteroids.erase(a_it);
+					hasBulletCollided = true;
+					break;
+				}
+				if (hasBulletCollided) {
+					b_it = data.bullets.erase(b_it);
+				}
+				else {
+					++b_it;
+				}
+			}
+
+			// update last updated time
+			data.last_updated = std::chrono::high_resolution_clock::now();
+		}
 	}
 }
 
@@ -102,8 +143,23 @@ std::vector<char> Game::Data::toBytes() {
 	return buf;
 }
 
+bool Game::circleCollision(Circle c1, Circle c2) {
+	const float rsq = powf(max(c1.radius, c2.radius), 2.f);
+	const float lsq = (c2.pos - c1.pos).lengthSq();
+	
+	return lsq >= rsq;
+}
+
 void Game::Data::reset() {
 	bullets.clear();
 	asteroids.clear();
 	last_updated = std::chrono::high_resolution_clock::now();
+
+	for (Spaceship& s : spaceships) {
+		s.pos = { 0, 0 };
+		s.vector = { 0,0 };
+		s.rotation = 0.f;
+		s.lives_left = Game::NUM_START_LIVES;
+		s.score = 0;
+	}
 }

@@ -11,7 +11,11 @@ private:
 
 public:
 
+	static constexpr int NUM_START_LIVES = 3;
+
 	static Game& getInstance();
+
+	bool gameRunning = true;		// for updateGame loop thread
 
 	// game stuff
 	static constexpr int MAX_PLAYERS = 4;
@@ -33,6 +37,18 @@ public:
 		void operator+=(const vec2& rhs) {
 			x += rhs.x;
 			y += rhs.y;
+		}
+
+		vec2 operator-(const vec2& rhs) const {
+			return { x - rhs.x, y - rhs.y };
+		}
+
+		float lengthSq() {
+			return x * x + y * y;
+		}
+
+		float length() {
+			return sqrt(lengthSq());
 		}
 	};
 
@@ -72,8 +88,19 @@ public:
 	Data data;
 	std::mutex data_mutex;
 
-
+	/**
+	 * use on a separate thread.
+	 * 
+	 */
 	void updateGame();
+
+
+	struct Circle {
+		vec2 pos;
+		float radius;
+	};
+
+	bool circleCollision(Circle c1, Circle c2);
 };
 
 #endif // __GAME_H__
