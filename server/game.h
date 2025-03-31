@@ -10,12 +10,19 @@ private:
 	Game() = default;
 
 public:
+	static constexpr int WINDOW_WIDTH = 1600;
+	static constexpr int WINDOW_HEIGHT = 900;
 
 	static constexpr int NUM_START_LIVES = 3;
 	static constexpr float BULLET_RADIUS = 2.f;
 	static constexpr float SPACESHIP_RADIUS = 5.f;
 	
-	static constexpr float GAME_DURATION_S = 60;
+	static constexpr int GAME_DURATION_S = 60;
+	static constexpr int ASTEROID_SPAWN_INTERVAL_MS = 1000;
+
+	static constexpr int MIN_ASTEROID_RADIUS = 5;
+	static constexpr int MAX_ASTEROID_RADIUS = 20;
+	static constexpr float ASTEROID_SPEED = 80.f;
 
 	static Game& getInstance();
 
@@ -48,12 +55,29 @@ public:
 			return { x - rhs.x, y - rhs.y };
 		}
 
+		vec2 operator*(const float scalar) {
+			return {
+				x * scalar,
+				y * scalar
+			};
+		}
+
+		void operator*=(const float scalar) {
+			x *= scalar;
+			y *= scalar;
+		}
+
 		float lengthSq() {
 			return x * x + y * y;
 		}
 
 		float length() {
 			return sqrt(lengthSq());
+		}
+
+		void normalize() {
+			x /= length();
+			y /= length();
 		}
 	};
 

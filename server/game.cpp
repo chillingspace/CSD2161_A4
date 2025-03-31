@@ -1,5 +1,6 @@
 #include "game.h"
 #include <stdexcept>
+#include <random>
 
 Game& Game::getInstance() {
 	static Game game;
@@ -20,11 +21,16 @@ void Game::updateGame() {
 
 	std::chrono::duration<float> elapsed{};
 	auto start = std::chrono::high_resolution_clock::now();
+	auto last_asteroid_spawn_time = start;
+	auto prev_frame_time = start;
 
 	static bool prevGameRunning = gameRunning;
 	prevGameRunning = gameRunning;
 
 	while (gameRunning) {
+		const auto curr = std::chrono::high_resolution_clock::now();
+		const float dt = (curr - prev_frame_time).count();
+
 		// sleep to not lock Game::data permanently
 		static constexpr int SLEEP_DURATION = 1000 / Server::TICK_RATE;
 		std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_DURATION));
@@ -51,17 +57,55 @@ void Game::updateGame() {
 
 			// update spaceships
 			for (Spaceship& s : data.spaceships) {
-				s.pos += s.vector;
+				s.pos += s.vector * dt;
 			}
 
 			// update bullets
 			for (Bullet& b : data.bullets) {
-				b.pos += b.vector;
+				b.pos += b.vector * dt;
 			}
 
 			// update asteroids
 			for (Asteroid& a : data.asteroids) {
-				a.pos += a.vector;
+				a.pos += a.vector * dt;
+			}
+
+			if ((curr - last_asteroid_spawn_time).count() > ASTEROID_SPAWN_INTERVAL_MS / 1000) {
+				// spawn asteroid
+				last_asteroid_spawn_time = curr;
+
+				static auto randomFloat = [](float min, float max) {
+					static std::random_device rd;
+					static std::mt19937 rng;
+					std::uniform_real_distribution<float> dist(min, max);
+					return dist(rng);
+				};
+
+
+				Asteroid na{};
+				int edge = rand() % 4; // 0 = top, 1 = bottom, 2 = left, 3 = right
+
+				if (edge == 0) { // Top edge
+					na.pos = vec2(randomFloat(0, WINDOW_WIDTH), 0);
+					na.vector = vec2(randomFloat(-1.f, 1.f), randomFloat(0.5f, 1.f)); // Move downward
+				}
+				else if (edge == 1) { // Bottom edge
+					na.pos = vec2(randomFloat(0, WINDOW_WIDTH), WINDOW_HEIGHT);
+					na.vector = vec2(randomFloat(-1.f, 1.f), randomFloat(-1.f, -0.5f)); // Move upward
+				}
+				else if (edge == 2) { // Left edge
+					na.pos = vec2(0, randomFloat(0, WINDOW_HEIGHT));
+					na.vector = vec2(randomFloat(0.5f, 1.f), randomFloat(-1.f, 1.f)); // Move right
+				}
+				else { // Right edge
+					na.pos = vec2(WINDOW_WIDTH, randomFloat(0, WINDOW_HEIGHT));
+					na.vector = vec2(randomFloat(-1.f, -0.5f), randomFloat(-1.f, 1.f)); // Move left
+				}
+
+				na.vector *= ASTEROID_SPEED;
+				na.radius = rand() % (MAX_ASTEROID_RADIUS - MIN_ASTEROID_RADIUS) + MIN_ASTEROID_RADIUS;
+
+				data.asteroids.push_back(na);
 			}
 
 			// check for collisions
@@ -244,13 +288,13 @@ void Game::updateGame() {
 					}
 				}
 			}
-			};
-		reliable_bc();
 
-		{
-			std::lock_guard<std::mutex> lock(data_mutex);
-			data.reset();
-		}
+			{
+				std::lock_guard<std::mutex> lock(data_mutex);
+				data.reset();
+			}
+		};
+		std::thread rbc(reliable_bc);
 
 		prevGameRunning = gameRunning;
 	}
