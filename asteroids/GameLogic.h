@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <list>
+#include <unordered_map>
 #include "Entity.h"
 #include "Player.h"
 
@@ -20,9 +21,12 @@ class GameLogic
 		static std::vector<Entity*> entities;
 		static std::list<Entity*> entitiesToDelete;
 		static std::list<Entity*> entitiesToAdd;
-		static std::vector<Player*> players;
+		static std::unordered_map<uint8_t, Player*> players;
+		
 
 		static int score;
+
+		static Player* findPlayerBySession(uint8_t sessionID);
 
 		static bool checkCollision(Entity* a, Entity* b);
 

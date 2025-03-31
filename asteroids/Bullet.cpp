@@ -5,6 +5,7 @@ Bullet::Bullet(sf::Vector2f pos, sf::Vector2f dir, Player* owner) : shape(1.f), 
     shape.setFillColor(owner->player_color);
 }
 
+// TO BE MOVED TO SERVER
 void Bullet::update(float delta_time)
 {
     lifetime -= delta_time;

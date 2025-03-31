@@ -35,6 +35,18 @@ enum SERVER_MSGS {
     END_GAME
 };
 
+#pragma pack(push, 1) // Ensure no padding in struct
+struct PlayerMovementPacket {
+    uint8_t cmd;
+    uint8_t sessionID;
+    float posX;
+    float posY;
+    float vecX;
+    float vecY;
+    float rotation;
+};
+#pragma pack(pop)
+
 // Initialize UDP connection
 void initNetwork() {
     WSADATA wsaData;
@@ -70,7 +82,6 @@ void initNetwork() {
     }
 }
 
-
 // Send player input
 void sendPlayerInput(char input) {
     int sendResult = sendto(udpSocket, &input, sizeof(input), 0,
@@ -83,6 +94,23 @@ void sendPlayerInput(char input) {
     }
 }
 
+void sendPlayerMovement(uint8_t sessionID, float posX, float posY, float vecX, float vecY, float rotation) {
+    PlayerMovementPacket packet;
+    packet.cmd = 1; // Movement command
+    packet.sessionID = sessionID;
+    packet.posX = posX;
+    packet.posY = posY;
+    packet.vecX = vecX;
+    packet.vecY = vecY;
+    packet.rotation = rotation;
+
+    int sendResult = sendto(udpSocket, (char*)&packet, sizeof(packet), 0,
+        (sockaddr*)&serverAddr, sizeof(serverAddr));
+    if (sendResult == SOCKET_ERROR) {
+        std::cerr << "Failed to send player movement. Error: " << WSAGetLastError() << "\n";
+    }
+}
+
 // Separate thread to handle incoming game state
 
 void receiveGameState() {
@@ -91,21 +119,12 @@ void receiveGameState() {
         sockaddr_in fromAddr;
         int fromSize = sizeof(fromAddr);
 
-        int recvLen = recvfrom(udpSocket, buffer, sizeof(buffer) - 1, 0,
+        int recvLen = recvfrom(udpSocket, buffer, sizeof(buffer), 0,
             (sockaddr*)&fromAddr, &fromSize);
         if (recvLen > 0) {
-            buffer[recvLen] = '\0';
-            std::cout << "Game State Received: " << buffer << "\n";
-            // Parse the packet based on your protocol (e.g., check the first byte for the command type)
-            if (buffer[0] == START_GAME) {
-                // Start the game logic
-                GameLogic::start();
-            }
-        }
-        else {
-            int error = WSAGetLastError();
-            if (error != WSAEWOULDBLOCK) {
-                std::cerr << "Recv failed. Error: " << error << "\n";
+            uint8_t cmd = buffer[0];
+            if (cmd == 2) { // Movement update command
+                //receivePlayerMovement(buffer, recvLen);
             }
         }
         Sleep(10);
@@ -130,7 +149,25 @@ void startNetworkThread() {
 std::vector<Entity*> GameLogic::entities{};
 std::list<Entity*> GameLogic::entitiesToDelete{};
 std::list<Entity*> GameLogic::entitiesToAdd{};
-std::vector<Player*> GameLogic::players{};
+std::unordered_map<uint8_t, Player*> GameLogic::players{};
+
+
+//
+//void receivePlayerMovement(char* buffer, int size) {
+//    if (size < sizeof(PlayerMovementPacket)) return;
+//
+//    PlayerMovementPacket* packet = (PlayerMovementPacket*)buffer;
+//
+//    // Find the player with this session ID
+//    Player* player = findPlayerBySessionID(packet->sessionID);
+//    if (player) {
+//        player->position.x = packet->posX;
+//        player->position.y = packet->posY;
+//        player->velocity.x = packet->vecX;
+//        player->velocity.y = packet->vecY;
+//        player->rotation = packet->rotation;
+//    }
+//}
 
 // Game conditions
 float GameLogic::game_timer;
@@ -144,6 +181,8 @@ float GameLogic::asteroid_spawn_time;
 sf::Font font;
 sf::Text game_over_text;
 sf::Text player_score_text;
+
+
 
 void GameLogic::init() {
     initNetwork();
@@ -164,30 +203,38 @@ void GameLogic::init() {
 }
 
 void GameLogic::start() {
-    is_game_over = false;
-    asteroid_spawn_time = ASTEROID_SPAWN_TIME;
-    players.clear();
+    // TO BE MOVED TO SERVER
+    {
+        is_game_over = false;
+        asteroid_spawn_time = ASTEROID_SPAWN_TIME;
+        players.clear();
+    }
 
+    // Colors of the player
     std::vector<sf::Color> player_colors = {
-        sf::Color::White,
+        sf::Color::Magenta,
         sf::Color::Blue,
         sf::Color::Green,
         sf::Color::Yellow
     };
 
-    // Add players with different colors
-    for (size_t i = 0; i < player_colors.size(); i++) {
-        Player* new_player = new Player(i+1, player_colors[i]);
-        players.push_back(new_player);
-        entitiesToAdd.push_back(new_player);
+    // TO BE MOVED TO SERVER (COLOR DOES ISNT REQUIRED)
+    {
+        for (size_t i = 0; i < player_colors.size(); i++) {
+            uint8_t sessionID = i + 1; // Unique ID for each player
+            Player* new_player = new Player(sessionID, player_colors[i]);
+            players[sessionID] = new_player; // Store in map
+            entitiesToAdd.push_back(new_player);
+        }
+
+        entitiesToAdd.push_back(new Asteroid());
+        game_timer = 60.f; // Game lasts for 60 seconds (adjust as needed)
     }
-
-    entitiesToAdd.push_back(new Asteroid());
-    game_timer = 60.f; // Game lasts for 60 seconds (adjust as needed)
-
 }
 
 void GameLogic::update(sf::RenderWindow& window, float delta_time) {
+
+    // TO BE MOVED TO SERVER
     if (!is_game_over) {
         game_timer -= delta_time;
         if (game_timer <= 0.f) {
@@ -204,35 +251,39 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num3)) sendPlayerInput(REQ_START_GAME);
     //if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num4)) sendPlayerInput('D');
 
-    asteroid_spawn_time -= delta_time;
+    // TO BE MOVED TO SERVER
+    {
+        asteroid_spawn_time -= delta_time;
 
-    for (auto& entity : entitiesToAdd) {
-        entities.push_back(entity);
-    }
-    entitiesToAdd.clear();
+        for (auto& entity : entitiesToAdd) {
+            entities.push_back(entity);
+        }
+        entitiesToAdd.clear();
 
-    for (size_t i = 0; i < entities.size(); i++) {
-        entities[i]->update(delta_time);
-        entities[i]->render(window);
-    }
+        for (size_t i = 0; i < entities.size(); i++) {
+            entities[i]->update(delta_time);
+            entities[i]->render(window);
+        }
 
-    for (auto* entity : entitiesToDelete) {
-        auto it = std::find(entities.begin(), entities.end(), entity);
-        if (it != entities.end()) {
-            delete* it;       // Delete the object
-            entities.erase(it); // Remove from the list
+        for (auto* entity : entitiesToDelete) {
+            auto it = std::find(entities.begin(), entities.end(), entity);
+            if (it != entities.end()) {
+                delete* it;       // Delete the object
+                entities.erase(it); // Remove from the list
+            }
+        }
+        entitiesToDelete.clear();
+
+        if (asteroid_spawn_time <= 0.f && entities.size() <= 12) {
+            entities.push_back(new Asteroid());
+            entities.push_back(new Asteroid());
+            asteroid_spawn_time = ASTEROID_SPAWN_TIME;
         }
     }
-    entitiesToDelete.clear();
-    
-    if (asteroid_spawn_time <= 0.f && entities.size() <= 12) {
-        entities.push_back(new Asteroid());
-        entities.push_back(new Asteroid());
-        asteroid_spawn_time = ASTEROID_SPAWN_TIME;
-    }
 
+    // Draw scoreboard based on num of players
     int i = 0;
-    for (Player* player : players) {
+    for (auto& [sessionID, player] : players){
         player_score_text.setPosition(sf::Vector2f(40.f, 20.f + (i * 80.f)));
         player_score_text.setString("P" + std::to_string(i + 1) + "\nScore: " + std::to_string(player->score));
         player_score_text.setFillColor(player->player_color);
@@ -250,6 +301,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
     window.draw(timer_text);
 
+
     if (is_game_over) {
         game_over_text.setString("Press Enter to Start a New Match");
         window.draw(game_over_text);
@@ -265,6 +317,14 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
 }
 
+// TO BE MOVED TO SERVER
+Player* GameLogic::findPlayerBySession(uint8_t sessionID)
+{
+    auto it = players.find(sessionID);
+    return (it != players.end()) ? it->second : nullptr;
+}
+
+// TO BE MOVED TO SERVER
 bool GameLogic::checkCollision(Entity* a, Entity* b) {
     // Compute the distance between the two entities
     float distance = sqrt(pow(a->position.x - b->position.x, 2) +
