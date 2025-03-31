@@ -82,9 +82,6 @@ public:
 	std::unordered_map<SESSION_ID, float> client_last_request_time;		// used to timeout client connection
 	std::mutex client_last_request_time_mutex;
 
-	std::vector<SESSION_ID> active_sessions;
-	std::mutex active_sessions_mutex;
-
 	// timeout stuff
 	static constexpr int DISCONNECTION_TIMEOUT_DURATION_MS = 15000;
 	static constexpr int TIMEOUT_MS = 200;		// timeout before retrying

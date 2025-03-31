@@ -340,11 +340,6 @@ void Server::requestHandler() {
 					Game::getInstance().data.spaceships.push_back(new_spaceship);
 				}
 
-				{
-					std::lock_guard<std::mutex> active_sessions_lock(active_sessions_mutex);
-					active_sessions.push_back(sid);
-				}
-
 				int buf_idx{};
 
 				sbuf[buf_idx++] = CONN_ACCEPTED;
@@ -397,7 +392,7 @@ void Server::requestHandler() {
 							// disconnect client
 							{
 								std::lock_guard<std::mutex> spaceshipsdatalock(Game::getInstance().data_mutex);
-								auto it = std::find(Game::getInstance().data.spaceships.begin(), Game::getInstance().data.spaceships.end(), [sid](const Game::Spaceship& s) {return s.sid == sid; });
+								auto it = std::find_if(Game::getInstance().data.spaceships.begin(), Game::getInstance().data.spaceships.end(), [sid](const Game::Spaceship& s) { return s.sid == sid; });
 								Game::getInstance().data.spaceships.erase(it);
 							}
 							{
