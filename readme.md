@@ -14,7 +14,7 @@ cmd - 1 byte
 ```cpp
 cmd - 1 byte
 session id - 1 byte
-udp broadcast port - 2 bytes
+udp broadcast port - 2 bytes        // everything after CONN_ACCEPTED will be using broadcast port
 spawn pos x - 4 bytes [float]
 spawn pos y - 4 bytes [float]
 spawn rotation degrees - 4 bytes [float]
