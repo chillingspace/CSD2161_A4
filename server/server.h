@@ -61,20 +61,17 @@ public:
 	SOCKET udp_socket{};
 	SOCKET udp_socket_broadcast{};
 
-	std::unordered_map<SESSION_ID, sockaddr_in> udp_clients{};
-	std::mutex udp_clients_mutex{};
+	//std::unordered_map<SESSION_ID, sockaddr_in> udp_clients{};
+	//std::mutex udp_clients_mutex{};
 
 	bool udpListenerRunning = true;
 
 	// ack stuff
-	std::unordered_set<SESSION_ID> ack_start_game_clients;
-	std::mutex ack_start_game_clients_mutex;
-
 	std::unordered_set<SESSION_ID> ack_conn_request_clients;
 	std::mutex ack_conn_request_clients_mutex;
 
-	std::unordered_set<SESSION_ID> ack_self_spaceship_clients;
-	std::mutex ack_self_spaceship_clients_mutex;
+	std::unordered_set<SESSION_ID> ack_start_game_clients;
+	std::mutex ack_start_game_clients_mutex;
 
 	std::unordered_set<SESSION_ID> ack_all_entities_clients;
 	std::mutex ack_all_entities_clients_mutex;
@@ -106,7 +103,6 @@ public:
 		SELF_SPACESHIP,
 		ACK_ALL_ENTITIES,
 		ACK_END_GAME,
-		ACK_DECLARE_WINNER
 	};
 
 	enum SERVER_MSGS {
@@ -115,7 +111,6 @@ public:
 		START_GAME,
 		ALL_ENTITIES,
 		END_GAME,
-		DECLARE_WINNER
 	};
 
 	struct Client {
@@ -171,7 +166,7 @@ public:
 	 * \param dest_addr
 	 * \return
 	 */
-	int sendData(const std::vector<char>& buffer, SESSION_ID sid);
+	//int sendData(const std::vector<char>& buffer, SESSION_ID sid);
 
 	int sendData(const std::vector<char>& buffer, sockaddr_in udp_addr_in);
 

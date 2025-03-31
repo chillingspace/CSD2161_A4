@@ -34,44 +34,44 @@ Server& Server::getInstance() {
  * \param dest_addr
  * \return
  */
-int Server::sendData(const std::vector<char>& buffer, SESSION_ID sid) {
-	sockaddr_in* udp_addr_in = nullptr;
-	{
-		std::lock_guard<std::mutex> usersLock{ udp_clients_mutex };
-
-		if (udp_clients.find(sid) == udp_clients.end()) {
-			//std::lock_guard<std::mutex> usersLock{ _stdoutMutex };		// potential deadlock
-			//std::cerr << "Session ID not found" << std::endl;
-			return SOCKET_ERROR;
-		}
-
-		udp_addr_in = reinterpret_cast<sockaddr_in*>(&udp_clients.at(sid));
-	}
-
-	if (udp_addr_in == nullptr) {
-		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
-		std::cerr << "udp_addr_in is nullptr" << std::endl;
-		return SOCKET_ERROR;
-	}
-
-	if (udp_socket == INVALID_SOCKET) {
-		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
-		std::cerr << "Invalid socket." << std::endl;
-		return SOCKET_ERROR;
-	}
-
-	int bytesSent = sendto(udp_socket, buffer.data(), (int)buffer.size(), 0, reinterpret_cast<sockaddr*>(&const_cast<sockaddr_in&>(*udp_addr_in)), sizeof(sockaddr_in));
-	if (bytesSent == SOCKET_ERROR) {
-		//std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
-		char errorBuffer[256];
-		strerror_s(errorBuffer, sizeof(errorBuffer), errno);
-		//std::cerr << "sendto() failed: " << errorBuffer << std::endl;
-
-		int wsaError = WSAGetLastError();
-		//std::cerr << "sendto() failed with wsa error: " << wsaError << std::endl;
-	}
-	return bytesSent;
-}
+//int Server::sendData(const std::vector<char>& buffer, SESSION_ID sid) {
+//	sockaddr_in* udp_addr_in = nullptr;
+//	{
+//		std::lock_guard<std::mutex> usersLock{ udp_clients_mutex };
+//
+//		if (udp_clients.find(sid) == udp_clients.end()) {
+//			//std::lock_guard<std::mutex> usersLock{ _stdoutMutex };		// potential deadlock
+//			//std::cerr << "Session ID not found" << std::endl;
+//			return SOCKET_ERROR;
+//		}
+//
+//		udp_addr_in = reinterpret_cast<sockaddr_in*>(&udp_clients.at(sid));
+//	}
+//
+//	if (udp_addr_in == nullptr) {
+//		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
+//		std::cerr << "udp_addr_in is nullptr" << std::endl;
+//		return SOCKET_ERROR;
+//	}
+//
+//	if (udp_socket == INVALID_SOCKET) {
+//		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
+//		std::cerr << "Invalid socket." << std::endl;
+//		return SOCKET_ERROR;
+//	}
+//
+//	int bytesSent = sendto(udp_socket, buffer.data(), (int)buffer.size(), 0, reinterpret_cast<sockaddr*>(&const_cast<sockaddr_in&>(*udp_addr_in)), sizeof(sockaddr_in));
+//	if (bytesSent == SOCKET_ERROR) {
+//		//std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
+//		char errorBuffer[256];
+//		strerror_s(errorBuffer, sizeof(errorBuffer), errno);
+//		//std::cerr << "sendto() failed: " << errorBuffer << std::endl;
+//
+//		int wsaError = WSAGetLastError();
+//		//std::cerr << "sendto() failed with wsa error: " << wsaError << std::endl;
+//	}
+//	return bytesSent;
+//}
 
 int Server::sendData(const std::vector<char>& buffer, sockaddr_in udp_addr_in) {
 	if (udp_socket == INVALID_SOCKET) {
@@ -258,12 +258,6 @@ void Server::udpListener() {
 			ack_start_game_clients.insert(sid);
 			break;
 		}
-		case ACK_ACK_SELF_SPACESHIP: {
-			isAck = true;
-			std::lock_guard<std::mutex> acklock(ack_self_spaceship_clients_mutex);
-			ack_self_spaceship_clients.insert(sid);
-			break;
-		}
 		case ACK_ALL_ENTITIES: {
 			isAck = true;
 			std::lock_guard<std::mutex> acklock(ack_all_entities_clients_mutex);
@@ -317,13 +311,34 @@ void Server::requestHandler() {
 			case CONN_REQUEST: {
 				std::cout << "Received connection request from client." << std::endl;
 
-				if (udp_clients.size() >= Game::MAX_PLAYERS) {
+				int num_players{};
+				{
+					std::lock_guard<std::mutex> spaceshipsdatalock(Game::getInstance().data_mutex);
+					num_players = (int)Game::getInstance().data.spaceships.size();
+				}
+
+				if (num_players >= Game::MAX_PLAYERS) {
 					sbuf[0] = CONN_REJECTED;
 					sendData(sbuf, senderAddr);
 					break;
 				}
 
+				// player allowed
 				const int sid = getSessionId();
+
+				// create new player spaceship
+				Game::Spaceship new_spaceship{};
+				new_spaceship.pos = { 0, 0 };
+				new_spaceship.vector = { 0, 0 };
+				new_spaceship.radius = Game::SPACESHIP_RADIUS;
+				new_spaceship.sid = sid;
+				new_spaceship.rotation = 0.f;
+				new_spaceship.lives_left = Game::NUM_START_LIVES;
+				new_spaceship.score = 0;
+				{
+					std::lock_guard<std::mutex> spaceshipsdatalock(Game::getInstance().data_mutex);
+					Game::getInstance().data.spaceships.push_back(new_spaceship);
+				}
 
 				{
 					std::lock_guard<std::mutex> active_sessions_lock(active_sessions_mutex);
@@ -359,12 +374,45 @@ void Server::requestHandler() {
 				sbuf[buf_idx++] = rotation_deg & 0xff;
 
 				// num lives
-				constexpr int starting_lives = 3;
+				sbuf[buf_idx++] = Game::NUM_START_LIVES;
 
-				sbuf[buf_idx++] = starting_lives;
+				auto reliableSender = [&]() {
+					std::chrono::duration<float> elapsed{};
+					auto start = std::chrono::high_resolution_clock::now();
 
-				sendData(sbuf, senderAddr);
-				std::cout << "Connection accepted. Sent data to client." << std::endl;
+					while (true) {
+						sendData(sbuf, senderAddr);
+
+						{
+							std::lock_guard<std::mutex> conn_req_lock(ack_conn_request_clients_mutex);
+							if (ack_conn_request_clients.find(sid) != ack_conn_request_clients.end()) {
+								// client has acked.
+								break;
+							}
+						}
+						std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT_MS));
+
+						elapsed = std::chrono::high_resolution_clock::now() - start;
+						if (elapsed.count() > DISCONNECTION_TIMEOUT_DURATION_MS) {
+							// disconnect client
+							{
+								std::lock_guard<std::mutex> spaceshipsdatalock(Game::getInstance().data_mutex);
+								auto it = std::find(Game::getInstance().data.spaceships.begin(), Game::getInstance().data.spaceships.end(), [sid](const Game::Spaceship& s) {return s.sid == sid; });
+								Game::getInstance().data.spaceships.erase(it);
+							}
+							{
+								std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
+								std::cout << "Client timed out(disconnected): " << sid << std::endl;
+							}
+							return;
+						}
+					}
+					{
+						std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
+						std::cout << "Connection accepted. Sent data to client. Client ACKed: " << sid << std::endl;
+					}
+					};
+				std::thread t(reliableSender);
 
 				break;
 			}
@@ -378,8 +426,8 @@ void Server::requestHandler() {
 
 				int num_conns{};
 				{
-					std::lock_guard<std::mutex> lock(active_sessions_mutex);
-					num_conns = (int)active_sessions.size();
+					std::lock_guard<std::mutex> lock(Game::getInstance().data_mutex);
+					num_conns = (int)Game::getInstance().data.spaceships.size();
 				}
 
 				auto bc = [this, &buf, num_conns]() {
@@ -402,15 +450,15 @@ void Server::requestHandler() {
 
 							{
 								std::unordered_set<SESSION_ID> timeout_disconnect_clients;
-								std::lock_guard<std::mutex> clientslock(active_sessions_mutex);
+								std::lock_guard<std::mutex> clientslock(Game::getInstance().data_mutex);
 
 								// remove sessions that timed out
-								for (auto it = active_sessions.begin(); it != active_sessions.end();) {
-									if (acked_clients.find(*it) != acked_clients.end()) {
+								for (auto it = Game::getInstance().data.spaceships.begin(); it != Game::getInstance().data.spaceships.end();) {
+									if (acked_clients.find(it->sid) != acked_clients.end()) {
 										++it;
 										continue;
 									}
-									it = active_sessions.erase(it);
+									it = Game::getInstance().data.spaceships.erase(it);
 								}
 							}
 
@@ -448,8 +496,8 @@ void Server::requestHandler() {
 				int idx = 2;
 
 				auto spaceship = std::find_if(
-					Game::getInstance().data.spaceships.begin(), 
-					Game::getInstance().data.spaceships.end(), 
+					Game::getInstance().data.spaceships.begin(),
+					Game::getInstance().data.spaceships.end(),
 					[&sid](const Game::Spaceship& s) { return s.sid == sid; }
 				);
 
