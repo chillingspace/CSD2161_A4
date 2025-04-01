@@ -22,6 +22,7 @@ int main()
 		}
 		}
 	);
+	std::thread reqHandlerThread([&s]() {s.requestHandler(); });
 
 	auto quitServerListener = []() {
 		// quit server if `q` is received
@@ -47,6 +48,7 @@ int main()
 
 	recvthread.join();
 	gameUpdateThread.join();
+	reqHandlerThread.join();
 
 	WSACleanup();
 
