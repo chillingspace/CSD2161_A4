@@ -29,7 +29,7 @@ void Game::updateGame() {
 
 	while (gameRunning) {
 		const auto curr = std::chrono::high_resolution_clock::now();
-		const float dt = (curr - prev_frame_time).count();
+		const float dt = (float)(curr - prev_frame_time).count();
 
 		// sleep to not lock Game::data permanently
 		static constexpr int SLEEP_DURATION = 1000 / Server::TICK_RATE;
@@ -103,7 +103,7 @@ void Game::updateGame() {
 				}
 
 				na.vector *= ASTEROID_SPEED;
-				na.radius = rand() % (MAX_ASTEROID_RADIUS - MIN_ASTEROID_RADIUS) + MIN_ASTEROID_RADIUS;
+				na.radius = (float)(rand() % (MAX_ASTEROID_RADIUS - MIN_ASTEROID_RADIUS) + MIN_ASTEROID_RADIUS);
 
 				data.asteroids.push_back(na);
 			}
