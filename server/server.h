@@ -1,3 +1,19 @@
+/* Start Header
+*****************************************************************/
+/*!
+\file server.h
+\author Poh Jing Seng, 2301363
+\par jingseng.poh\@digipen.edu
+\date 1 Apr 2025
+\brief
+This file declares the game server
+Copyright (C) 2025 DigiPen Institute of Technology.
+Reproduction or disclosure of this file or its contents without the
+prior written consent of DigiPen Institute of Technology is prohibited.
+*/
+/* End Header
+*******************************************************************/
+
 #pragma once
 
 #ifndef __SERVER_H__
