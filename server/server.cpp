@@ -249,15 +249,26 @@ void Server::udpListener() {
 		switch (cmd) {
 		case ACK_CONN_REQUEST: {
 			isAck = true;
-			std::lock_guard<std::mutex> acklock(ack_conn_request_clients_mutex);
-			ack_conn_request_clients.insert(sid);
-			std::cout << "Client with SID " << sid << " acknowledged connection request." << std::endl;
+			{
+				std::lock_guard<std::mutex> acklock(ack_conn_request_clients_mutex);
+				ack_conn_request_clients.insert(sid);
+			}
+			{
+				std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
+				std::cout << "Client with SID " << sid << " acknowledged connection request." << std::endl;
+			}
 			break;
 		}
 		case ACK_START_GAME: {
 			isAck = true;
-			std::lock_guard<std::mutex> acklock(ack_start_game_clients_mutex);
-			ack_start_game_clients.insert(sid);
+			{
+				std::lock_guard<std::mutex> acklock(ack_start_game_clients_mutex);
+				ack_start_game_clients.insert(sid);
+			}
+			{
+				std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
+				std::cout << "Client with SID " << sid << " acknowledged start game." << std::endl;
+			}
 			break;
 		}
 		//case ACK_ALL_ENTITIES: {
@@ -268,8 +279,14 @@ void Server::udpListener() {
 		//}
 		case ACK_END_GAME: {
 			isAck = true;
-			std::lock_guard<std::mutex> acklock(ack_end_game_clients_mutex);
-			ack_end_game_clients.insert(sid);
+			{
+				std::lock_guard<std::mutex> acklock(ack_end_game_clients_mutex);
+				ack_end_game_clients.insert(sid);
+			}
+			{
+				std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
+				std::cout << "Client with SID " << sid << " acknowledged end game." << std::endl;
+			}
 			break;
 		}
 		}
