@@ -368,6 +368,8 @@ void Server::requestHandler() {
 				sbuf[buf_idx++] = (rotation_deg >> 8) & 0xff;
 				sbuf[buf_idx++] = rotation_deg & 0xff;
 
+				//// num lives
+				//sbuf[buf_idx++] = Game::NUM_START_LIVES;
 
 				auto reliableSender = [&]() {
 					std::chrono::duration<float> elapsed{};
