@@ -1,3 +1,19 @@
+/* Start Header
+*****************************************************************/
+/*!
+\file game.h
+\author Poh Jing Seng, 2301363
+\par jingseng.poh\@digipen.edu
+\date 1 Apr 2025
+\brief
+This file declares the game handlers
+Copyright (C) 2025 DigiPen Institute of Technology.
+Reproduction or disclosure of this file or its contents without the
+prior written consent of DigiPen Institute of Technology is prohibited.
+*/
+/* End Header
+*******************************************************************/
+
 #pragma once
 
 #ifndef __GAME_H__
@@ -23,6 +39,7 @@ public:
 	static constexpr int MIN_ASTEROID_RADIUS = 5;
 	static constexpr int MAX_ASTEROID_RADIUS = 20;
 	static constexpr float ASTEROID_SPEED = 80.f;
+	static constexpr int MAX_ASTEROIDS = 20;
 
 	static Game& getInstance();
 

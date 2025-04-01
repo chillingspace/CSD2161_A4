@@ -211,17 +211,17 @@ void initNetwork() {
 
                 // Read Spawn X (4 bytes, float)
                 float spawnPosX;
-                memcpy(&spawnPosX, buffer + offset, sizeof(float));
+                spawnPosX = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                 offset += sizeof(float);
 
                 // Read Spawn Y (4 bytes, float)
                 float spawnPosY;
-                memcpy(&spawnPosY, buffer + offset, sizeof(float));
+                spawnPosY = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                 offset += sizeof(float);
 
                 // Read Spawn Rotation (4 bytes, float)
                 float spawnRotation;
-                memcpy(&spawnRotation, buffer + offset, sizeof(float));
+                spawnRotation = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                 offset += sizeof(float);
 
                 std::cout << "Session ID: " << (int)sessionID << std::endl;
