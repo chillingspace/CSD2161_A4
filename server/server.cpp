@@ -299,9 +299,10 @@ void Server::requestHandler() {
 			recvbuffer_queue.clear();
 		}
 
-		static std::vector<char> sbuf(MAX_PACKET_SIZE);
-		if (sbuf.size() != MAX_PACKET_SIZE)
-			sbuf.resize(MAX_PACKET_SIZE);
+		//static std::vector<char> sbuf(MAX_PACKET_SIZE);
+		//if (sbuf.size() != MAX_PACKET_SIZE)
+		//	sbuf.resize(MAX_PACKET_SIZE);
+		static std::vector<char> sbuf(16);
 
 		// handle data
 		for (const auto [senderAddr, rbuf] : recvbuffer) {
@@ -309,8 +310,7 @@ void Server::requestHandler() {
 
 			switch (cmd) {
 			case CONN_REQUEST: {
-				std::cout << "Received connection request from client." << std::endl;
-
+				std::cout << "Connection Requested By Client" << std::endl;
 				int num_players{};
 				{
 					std::lock_guard<std::mutex> spaceshipsdatalock(Game::getInstance().data_mutex);
@@ -368,15 +368,31 @@ void Server::requestHandler() {
 				sbuf[buf_idx++] = (rotation_deg >> 8) & 0xff;
 				sbuf[buf_idx++] = rotation_deg & 0xff;
 
-				// num lives
-				sbuf[buf_idx++] = Game::NUM_START_LIVES;
 
 				auto reliableSender = [&]() {
 					std::chrono::duration<float> elapsed{};
 					auto start = std::chrono::high_resolution_clock::now();
+					char senderIP[INET_ADDRSTRLEN];
+					inet_ntop(AF_INET, &(senderAddr.sin_addr), senderIP, INET_ADDRSTRLEN);
+					std::cout << "Received data from " << senderIP << ":" << ntohs(senderAddr.sin_port) << std::endl;
 
 					while (true) {
-						sendData(sbuf, senderAddr);
+						// Debug: Print packet contents before sending
+						std::cout << "Sending packet: ";
+						for (int i = 0; i < sbuf.size(); ++i) {
+							std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(uint8_t)sbuf[i] << " ";
+						}
+						std::cout << std::dec << std::endl;
+
+						// Send data
+						int bytesSent = sendData(sbuf, senderAddr);
+						if (bytesSent < 0) {
+							std::cerr << "sendData() failed: " << std::endl;
+						}
+						else {
+							std::cout << "Sent " << bytesSent << " bytes to " << senderIP << ":" << ntohs(senderAddr.sin_port) << std::endl;
+						}
+
 
 						{
 							std::lock_guard<std::mutex> conn_req_lock(ack_conn_request_clients_mutex);
@@ -409,7 +425,7 @@ void Server::requestHandler() {
 					}
 					};
 				std::thread t(reliableSender);
-
+				t.detach();
 				break;
 			}
 			case REQ_START_GAME: {

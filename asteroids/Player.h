@@ -11,6 +11,8 @@ constexpr float SHOT_DELAY = 0.5f;
 constexpr float DEATH_TIMER = 3.f;
 constexpr float INVULNERABILITY_TIME = 1.f;
 
+
+
 class Player : public Entity {
     private:
         sf::Vector2f velocity;
@@ -26,7 +28,7 @@ class Player : public Entity {
         sf::Color player_color;
 
         // Player constructor
-        Player(int uid, sf::Color player_color);
+        Player(int uid, sf::Color player_color, sf::Vector2f pos, float rot);
 
         // Update player
         void update(float delta_time) override;

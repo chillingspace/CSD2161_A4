@@ -9,11 +9,13 @@
 #include <thread>
 #pragma comment(lib, "ws2_32.lib")  // Link Winsock library
 
-#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
-#define SERVER_PORT 3001
+#define SERVER_IP "10.132.32.35"  // Replace with your server's IP
+#define SERVER_PORT 1111
 SOCKET udpSocket;
 sockaddr_in serverAddr;
 bool isRunning = true;  // Used for network thread
+
+static constexpr int MAX_PACKET_SIZE = 1000;
 
 enum CLIENT_REQUESTS {
     CONN_REQUEST = 0,
@@ -47,6 +49,20 @@ struct PlayerMovementPacket {
 };
 #pragma pack(pop)
 
+// Entities lists
+std::vector<Entity*> GameLogic::entities{};
+std::list<Entity*> GameLogic::entitiesToDelete{};
+std::list<Entity*> GameLogic::entitiesToAdd{};
+std::unordered_map<uint8_t, Player*> GameLogic::players{};
+
+// Colors of the player
+std::vector<sf::Color> player_colors = {
+    sf::Color::Magenta,
+    sf::Color::Blue,
+    sf::Color::Green,
+    sf::Color::Yellow
+};
+
 // Initialize UDP connection
 void initNetwork() {
     WSADATA wsaData;
@@ -63,8 +79,34 @@ void initNetwork() {
     }
     std::cout << "UDP socket created successfully.\n";
 
+    // Bind the socket to a local address
+    sockaddr_in localAddr{};
+    localAddr.sin_family = AF_INET;
+    localAddr.sin_addr.s_addr = INADDR_ANY;  // Listen on all interfaces
+    localAddr.sin_port = htons(0);           // Let OS assign an available port
+
+    if (bind(udpSocket, (sockaddr*)&localAddr, sizeof(localAddr)) == SOCKET_ERROR) {
+        std::cerr << "Failed to bind socket. Error: " << WSAGetLastError() << "\n";
+        closesocket(udpSocket);
+        WSACleanup();
+        exit(1);
+    }
+    std::cout << "Socket successfully bound to a local port.\n";
+
+    // Get the local address and port that the OS assigned
+    sockaddr_in localAddrAssigned;
+    int addrSize = sizeof(localAddrAssigned);
+    if (getsockname(udpSocket, (sockaddr*)&localAddrAssigned, &addrSize) == SOCKET_ERROR) {
+        std::cerr << "Failed to get local address. Error: " << WSAGetLastError() << "\n";
+    }
+    else {
+        char localIP[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &localAddrAssigned.sin_addr, localIP, INET_ADDRSTRLEN);  // Convert IP to string
+        std::cout << "Local IP: " << localIP << ", Local Port: " << ntohs(localAddrAssigned.sin_port) << std::endl;
+    }
+
     u_long mode = 1;
-    ioctlsocket(udpSocket, FIONBIO, &mode);
+    ioctlsocket(udpSocket, FIONBIO, &mode);  // Set to non-blocking mode
 
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(SERVER_PORT);
@@ -74,12 +116,93 @@ void initNetwork() {
     char connRequest = CONN_REQUEST;
     int sendResult = sendto(udpSocket, &connRequest, sizeof(connRequest), 0,
         (sockaddr*)&serverAddr, sizeof(serverAddr));
+
     if (sendResult == SOCKET_ERROR) {
         std::cerr << "Failed to send connection request. Error: " << WSAGetLastError() << "\n";
+        return;
     }
-    else {
-        std::cout << "Sent connection request to server.\n";
+
+    std::cout << "Sent connection request to server. Waiting for response...\n";
+
+    // Wait for server response
+    char buffer[512];
+    sockaddr_in fromAddr;
+    int fromSize = sizeof(fromAddr);
+    int retries = 10;  // Wait for a few tries
+    bool connected = false;
+
+    while (retries-- > 0) {
+        int recvLen = recvfrom(udpSocket, buffer, sizeof(buffer), 0, (sockaddr*)&fromAddr, &fromSize);
+
+        if (recvLen > 0) {
+            uint8_t serverMsg = buffer[0];
+            std::cout << "Receiving from server!" << serverMsg << std::endl;
+
+            if (serverMsg == CONN_ACCEPTED) {
+                std::cout << "Connection accepted by server!\n";
+                connected = true;
+
+                int offset = 1; // Start after the command byte
+
+                // Session ID (1 byte)
+                uint8_t sessionID = buffer[offset++];
+                std::cout << "Session ID: " << (int)sessionID << std::endl;
+
+                // Read UDP Broadcast Port (2 bytes, ensure correct endian conversion)
+                uint16_t udpBroadcastPort;
+                memcpy(&udpBroadcastPort, buffer + offset, sizeof(uint16_t));
+                udpBroadcastPort = ntohs(udpBroadcastPort); // Convert from network byte order if needed
+                offset += 2;
+
+                // Read Spawn X (4 bytes, float)
+                float spawnPosX;
+                memcpy(&spawnPosX, buffer + offset, sizeof(float));
+                offset += sizeof(float);
+
+                // Read Spawn Y (4 bytes, float)
+                float spawnPosY;
+                memcpy(&spawnPosY, buffer + offset, sizeof(float));
+                offset += sizeof(float);
+
+                // Read Spawn Rotation (4 bytes, float)
+                float spawnRotation;
+                memcpy(&spawnRotation, buffer + offset, sizeof(float));
+                offset += sizeof(float);
+
+
+                std::cout << "Session ID: " << (int)sessionID << std::endl;
+                std::cout << "UDP Broadcast Port: " << udpBroadcastPort << std::endl;
+                std::cout << "Spawn X: " << spawnPosX << std::endl;
+                std::cout << "Spawn Y: " << spawnPosY << std::endl;
+                std::cout << "Spawn Rotation: " << spawnRotation << " degrees" << std::endl;
+
+                Player* new_player = new Player(sessionID, player_colors[sessionID], sf::Vector2f(spawnPosX, spawnPosY), spawnRotation);
+                GameLogic::players[sessionID] = new_player; // Store in map
+                GameLogic::entitiesToAdd.push_back(new_player);
+
+                // Send ACK_CONN_REQUEST
+                char ack = ACK_CONN_REQUEST;
+                sendResult = sendto(udpSocket, &ack, sizeof(ack), 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
+
+                if (sendResult == SOCKET_ERROR) {
+                    std::cerr << "Failed to send ACK_CONN_REQUEST. Error: " << WSAGetLastError() << "\n";
+                }
+                else {
+                    std::cout << "Sent ACK_CONN_REQUEST to server.\n";
+                }
+
+                break;
+            }
+            else if (serverMsg == CONN_REJECTED) {
+                std::cerr << "Connection rejected by server.\n";
+                return;
+            }
+        }
+
+        Sleep(500);  // Wait before retrying
     }
+
+
 }
 
 // Send player input
@@ -115,21 +238,38 @@ void sendPlayerMovement(uint8_t sessionID, float posX, float posY, float vecX, f
 
 void receiveGameState() {
     while (isRunning) {
-        char buffer[512];
+        char buffer[512];  // Buffer for incoming data
         sockaddr_in fromAddr;
         int fromSize = sizeof(fromAddr);
 
         int recvLen = recvfrom(udpSocket, buffer, sizeof(buffer), 0,
             (sockaddr*)&fromAddr, &fromSize);
+
         if (recvLen > 0) {
-            uint8_t cmd = buffer[0];
-            if (cmd == 2) { // Movement update command
-                //receivePlayerMovement(buffer, recvLen);
+            uint8_t cmd = buffer[0];  // First byte is the command type
+
+            // Print received data
+            std::cout << "Received packet! Length: " << recvLen
+                << ", Command: " << (int)cmd << std::endl;
+
+            // If it's a movement update (example: command type 2)
+            if (cmd == 2) {
+                std::cout << "Received movement update" << std::endl;
+                // Optionally, parse the movement data
+                // receivePlayerMovement(buffer, recvLen);
             }
         }
-        Sleep(10);
+        else {
+            int error = WSAGetLastError();
+            if (error != WSAEWOULDBLOCK) {  // Ignore "Would Block" errors (normal for non-blocking sockets)
+                std::cerr << "recvfrom failed. Error: " << error << std::endl;
+            }
+        }
+
+        Sleep(10);  // Avoid CPU overload
     }
 }
+
 // Cleanup
 void closeNetwork() {
     isRunning = false;
@@ -143,14 +283,6 @@ void startNetworkThread() {
     recvThread.detach();
     std::cout << "Started network thread.\n";
 }
-
-
-// Entities lists
-std::vector<Entity*> GameLogic::entities{};
-std::list<Entity*> GameLogic::entitiesToDelete{};
-std::list<Entity*> GameLogic::entitiesToAdd{};
-std::unordered_map<uint8_t, Player*> GameLogic::players{};
-
 
 //
 //void receivePlayerMovement(char* buffer, int size) {
@@ -207,25 +339,13 @@ void GameLogic::start() {
     {
         is_game_over = false;
         asteroid_spawn_time = ASTEROID_SPAWN_TIME;
-        players.clear();
+        //players.clear();
     }
 
-    // Colors of the player
-    std::vector<sf::Color> player_colors = {
-        sf::Color::Magenta,
-        sf::Color::Blue,
-        sf::Color::Green,
-        sf::Color::Yellow
-    };
 
     // TO BE MOVED TO SERVER (COLOR DOES ISNT REQUIRED)
     {
-        for (size_t i = 0; i < player_colors.size(); i++) {
-            uint8_t sessionID = i + 1; // Unique ID for each player
-            Player* new_player = new Player(sessionID, player_colors[i]);
-            players[sessionID] = new_player; // Store in map
-            entitiesToAdd.push_back(new_player);
-        }
+
 
         entitiesToAdd.push_back(new Asteroid());
         game_timer = 60.f; // Game lasts for 60 seconds (adjust as needed)
@@ -308,7 +428,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
         // Wait for Enter key to restart
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
-            entities.clear();
+            //entities.clear();
             start();
         }
 

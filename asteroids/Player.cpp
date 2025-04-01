@@ -3,7 +3,7 @@
 #include "Global.h"
 #include "GameLogic.h"
 
-Player::Player(int uid, sf::Color player_color) : Entity(sf::Vector2f(500.f, 500.f), 0.f), vertices(sf::Triangles, 3), uid(uid), score(0), is_alive(true), death_timer(0.f), invulnerability_timer(0.f), shot_timer(), player_color(player_color), velocity(sf::Vector2f(0.f,0.f)) {
+Player::Player(int uid, sf::Color player_color, sf::Vector2f pos, float rot) : Entity(pos, rot), vertices(sf::Triangles, 3), uid(uid), score(0), is_alive(true), death_timer(0.f), invulnerability_timer(0.f), shot_timer(), player_color(player_color), velocity(sf::Vector2f(0.f,0.f)) {
     vertices[0].position = sf::Vector2f(20, 0);   // Tip of the ship
     vertices[1].position = sf::Vector2f(-20, -15); // Bottom left
     vertices[2].position = sf::Vector2f(-20, 15);  // Bottom right
