@@ -9,8 +9,14 @@
 #include <thread>
 #pragma comment(lib, "ws2_32.lib")  // Link Winsock library
 
+#ifndef JS_DEBUG
+
+std::string SERVER_IP;
+int SERVER_PORT;
+#else
 #define SERVER_IP "10.132.32.35"  // Replace with your server's IP
 #define SERVER_PORT 1111
+#endif
 SOCKET udpSocket;
 sockaddr_in serverAddr;
 bool isRunning = true;  // Used for network thread
@@ -65,6 +71,21 @@ std::vector<sf::Color> player_colors = {
 
 // Initialize UDP connection
 void initNetwork() {
+    std::cout << "Enter Server IP Address: ";
+    std::getline(std::cin, SERVER_IP);
+
+    std::string portInput;
+    std::cout << "Enter Server Port: ";
+    std::getline(std::cin, portInput);
+
+    try {
+        SERVER_PORT = std::stoi(portInput);
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Invalid port number. Using default port 1111.\n";
+        SERVER_PORT = 1111;
+    }
+
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         std::cerr << "WSAStartup failed.\n";
@@ -110,7 +131,7 @@ void initNetwork() {
 
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(SERVER_PORT);
-    inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
+    inet_pton(AF_INET, SERVER_IP.c_str(), &serverAddr.sin_addr);
 
     // Send connection request
     char connRequest = CONN_REQUEST;
