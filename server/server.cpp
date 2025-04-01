@@ -117,6 +117,11 @@ int Server::broadcastData(const std::vector<char>& buffer) {
 		int wsaError = WSAGetLastError();
 		//std::cerr << "sendto() failed with wsa error: " << wsaError << std::endl;
 	}
+	std::cout << "Sending packet: ";
+	for (int i = 0; i < buffer.size(); ++i) {
+		std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(uint8_t)buffer[i] << " ";
+	}
+	std::cout << std::dec << std::endl;
 	return bytesSent;
 }
 
@@ -169,18 +174,13 @@ SOCKET Server::createUdpSocket(int port, bool broadcast) {
 		udpSocket,
 		udp_info->ai_addr,
 		static_cast<int>(udp_info->ai_addrlen));
-	if (errorCode != NO_ERROR)
-	{
-		std::cerr << "bind() failed." << std::endl;
-		closesocket(udpSocket);
-		udpSocket = INVALID_SOCKET;
-	}
-	if (udpSocket == INVALID_SOCKET)
-	{
-		std::cerr << "bind() failed." << std::endl;
-		WSACleanup();
-		return INVALID_SOCKET;
-	}
+    if (errorCode == SOCKET_ERROR) {
+        std::cerr << "bind() failed." << std::endl;
+        closesocket(udpSocket);
+        freeaddrinfo(udp_info);
+        WSACleanup();
+        return INVALID_SOCKET;
+    }
 
 	// get assigned port number
 	sockaddr_in udpAddr{};
@@ -188,6 +188,7 @@ SOCKET Server::createUdpSocket(int port, bool broadcast) {
 	int result_port;
 	if (getsockname(udpSocket, (sockaddr*)&udpAddr, &addrLen) == 0) {
 		result_port = ntohs(udpAddr.sin_port); // Convert from network byte order
+		std::cout << "Assigned port: " << result_port << std::endl;
 	}
 	else {
 		std::cerr << "getsockname() failed." << std::endl;
@@ -196,7 +197,8 @@ SOCKET Server::createUdpSocket(int port, bool broadcast) {
 		return INVALID_SOCKET;
 	}
 
-	//freeaddrinfo(udp_info);
+	// Cleanup
+	freeaddrinfo(udp_info);
 	return udpSocket;
 }
 
@@ -432,8 +434,8 @@ void Server::requestHandler() {
 			}
 			case REQ_START_GAME: {
 				std::cout << "Received start game request." << std::endl;
-				std::vector<char> buf(MAX_PACKET_SIZE);
-				buf.resize(MAX_PACKET_SIZE);
+				std::vector<char> buf(16);
+				//buf.resize(MAX_PACKET_SIZE);
 
 				buf[0] = START_GAME;
 				Game::getInstance().data.reset();
@@ -480,7 +482,7 @@ void Server::requestHandler() {
 							break;
 						}
 
-						broadcastData(sbuf);
+						broadcastData(buf);
 
 						std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT_MS));
 
@@ -675,12 +677,12 @@ int Server::init() {
 	}
 
 	udp_socket_broadcast = createUdpSocket(serverUdpPortBroadcast, true);
-	if (udp_socket == INVALID_SOCKET) {
-		closesocket(udp_socket);
-		udp_socket = INVALID_SOCKET;
+	if (udp_socket_broadcast == INVALID_SOCKET) {
+		closesocket(udp_socket_broadcast);
+		udp_socket_broadcast = INVALID_SOCKET;
 		WSACleanup();
 		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
-		std::cerr << "Failed to create UDP socket" << std::endl;
+		std::cerr << "Failed to create UDP Broadcast socket" << std::endl;
 		return 5;
 	}
 

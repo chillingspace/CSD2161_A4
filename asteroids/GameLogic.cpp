@@ -9,16 +9,23 @@
 #include <thread>
 #pragma comment(lib, "ws2_32.lib")  // Link Winsock library
 
+#define JS_DEBUG
+
 #ifndef JS_DEBUG
 
 std::string SERVER_IP;
 int SERVER_PORT;
 #else
-#define SERVER_IP "10.132.32.35"  // Replace with your server's IP
-#define SERVER_PORT 1111
+#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
+#define SERVER_PORT 3000
 #endif
+
 SOCKET udpSocket;
 sockaddr_in serverAddr;
+
+uint16_t udpBroadcastPort; 
+uint16_t udpClientBroadcastPort;
+
 bool isRunning = true;  // Used for network thread
 
 static constexpr int MAX_PACKET_SIZE = 1000;
@@ -69,8 +76,56 @@ std::vector<sf::Color> player_colors = {
     sf::Color::Yellow
 };
 
+void listenForBroadcast() {
+    SOCKET udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (udpSocket == INVALID_SOCKET) {
+        std::cerr << "Error creating UDP socket: " << WSAGetLastError() << std::endl;
+        return;
+    }
+
+    // Allow broadcast
+    BOOL broadcastEnable = TRUE;
+    if (setsockopt(udpSocket, SOL_SOCKET, SO_BROADCAST, (char*)&broadcastEnable, sizeof(broadcastEnable)) == SOCKET_ERROR) {
+        std::cerr << "Failed to set broadcast option: " << WSAGetLastError() << std::endl;
+        closesocket(udpSocket);
+        return;
+    }
+
+    // Bind socket to the broadcast port (udpBroadcastPort)
+    sockaddr_in recvAddr;
+    recvAddr.sin_family = AF_INET;
+    recvAddr.sin_addr.s_addr = INADDR_ANY;  // Listen on all network interfaces
+    recvAddr.sin_port = htons(udpBroadcastPort);
+
+    if (bind(udpSocket, (sockaddr*)&recvAddr, sizeof(recvAddr)) == SOCKET_ERROR) {
+        std::cerr << "Bind failed: " << WSAGetLastError() << std::endl;
+        closesocket(udpSocket);
+        return;
+    }
+
+    std::cout << "Listening for UDP broadcasts on port " << udpBroadcastPort << "..." << std::endl;
+
+    while (true) {
+        char buffer[1024];
+        sockaddr_in senderAddr;
+        int senderAddrSize = sizeof(senderAddr);
+
+        int bytesReceived = recvfrom(udpSocket, buffer, sizeof(buffer) - 1, 0, (sockaddr*)&senderAddr, &senderAddrSize);
+        if (bytesReceived > 0) {
+            buffer[bytesReceived] = '\0';
+            std::cout << "Received broadcast from " << SERVER_IP << ": " << buffer << std::endl;
+        }
+    }
+
+    closesocket(udpSocket);
+    WSACleanup();
+}
+
+
 // Initialize UDP connection
 void initNetwork() {
+    
+#ifndef JS_DEBUG
     std::cout << "Enter Server IP Address: ";
     std::getline(std::cin, SERVER_IP);
 
@@ -85,7 +140,7 @@ void initNetwork() {
         std::cerr << "Invalid port number. Using default port 1111.\n";
         SERVER_PORT = 1111;
     }
-
+#endif
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         std::cerr << "WSAStartup failed.\n";
@@ -100,39 +155,16 @@ void initNetwork() {
     }
     std::cout << "UDP socket created successfully.\n";
 
-    // Bind the socket to a local address
-    sockaddr_in localAddr{};
-    localAddr.sin_family = AF_INET;
-    localAddr.sin_addr.s_addr = INADDR_ANY;  // Listen on all interfaces
-    localAddr.sin_port = htons(0);           // Let OS assign an available port
-
-    if (bind(udpSocket, (sockaddr*)&localAddr, sizeof(localAddr)) == SOCKET_ERROR) {
-        std::cerr << "Failed to bind socket. Error: " << WSAGetLastError() << "\n";
-        closesocket(udpSocket);
-        WSACleanup();
-        exit(1);
-    }
-    std::cout << "Socket successfully bound to a local port.\n";
-
-    // Get the local address and port that the OS assigned
-    sockaddr_in localAddrAssigned;
-    int addrSize = sizeof(localAddrAssigned);
-    if (getsockname(udpSocket, (sockaddr*)&localAddrAssigned, &addrSize) == SOCKET_ERROR) {
-        std::cerr << "Failed to get local address. Error: " << WSAGetLastError() << "\n";
-    }
-    else {
-        char localIP[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &localAddrAssigned.sin_addr, localIP, INET_ADDRSTRLEN);  // Convert IP to string
-        std::cout << "Local IP: " << localIP << ", Local Port: " << ntohs(localAddrAssigned.sin_port) << std::endl;
-    }
-
     u_long mode = 1;
     ioctlsocket(udpSocket, FIONBIO, &mode);  // Set to non-blocking mode
 
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(SERVER_PORT);
+#ifndef JS_DEBUG
     inet_pton(AF_INET, SERVER_IP.c_str(), &serverAddr.sin_addr);
-
+#else
+    inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
+#endif
     // Send connection request
     char connRequest = CONN_REQUEST;
     int sendResult = sendto(udpSocket, &connRequest, sizeof(connRequest), 0,
@@ -167,13 +199,15 @@ void initNetwork() {
 
                 // Session ID (1 byte)
                 uint8_t sessionID = buffer[offset++];
-                std::cout << "Session ID: " << (int)sessionID << std::endl;
 
                 // Read UDP Broadcast Port (2 bytes, ensure correct endian conversion)
-                uint16_t udpBroadcastPort;
                 memcpy(&udpBroadcastPort, buffer + offset, sizeof(uint16_t));
                 udpBroadcastPort = ntohs(udpBroadcastPort); // Convert from network byte order if needed
                 offset += 2;
+                // Create and bind the second UDP socket for the broadcast port
+                udpClientBroadcastPort = udpBroadcastPort - 2;
+
+                std::cout << udpClientBroadcastPort << std::endl;
 
                 // Read Spawn X (4 bytes, float)
                 float spawnPosX;
@@ -189,7 +223,6 @@ void initNetwork() {
                 float spawnRotation;
                 memcpy(&spawnRotation, buffer + offset, sizeof(float));
                 offset += sizeof(float);
-
 
                 std::cout << "Session ID: " << (int)sessionID << std::endl;
                 std::cout << "UDP Broadcast Port: " << udpBroadcastPort << std::endl;
@@ -223,7 +256,6 @@ void initNetwork() {
         Sleep(500);  // Wait before retrying
     }
 
-
 }
 
 // Send player input
@@ -238,58 +270,41 @@ void sendPlayerInput(char input) {
     }
 }
 
-void sendPlayerMovement(uint8_t sessionID, float posX, float posY, float vecX, float vecY, float rotation) {
-    PlayerMovementPacket packet;
-    packet.cmd = 1; // Movement command
-    packet.sessionID = sessionID;
-    packet.posX = posX;
-    packet.posY = posY;
-    packet.vecX = vecX;
-    packet.vecY = vecY;
-    packet.rotation = rotation;
-
-    int sendResult = sendto(udpSocket, (char*)&packet, sizeof(packet), 0,
-        (sockaddr*)&serverAddr, sizeof(serverAddr));
-    if (sendResult == SOCKET_ERROR) {
-        std::cerr << "Failed to send player movement. Error: " << WSAGetLastError() << "\n";
-    }
-}
+//
+//void sendPlayerMovement(uint8_t sessionID, float posX, float posY, float vecX, float vecY, float rotation) {
+//    PlayerMovementPacket packet;
+//    packet.cmd = 1; // Movement command
+//    packet.sessionID = sessionID;
+//    packet.posX = posX;
+//    packet.posY = posY;
+//    packet.vecX = vecX;
+//    packet.vecY = vecY;
+//    packet.rotation = rotation;
+//
+//    int sendResult = sendto(udpSocket, (char*)&packet, sizeof(packet), 0,
+//        (sockaddr*)&serverAddr, sizeof(serverAddr));
+//    if (sendResult == SOCKET_ERROR) {
+//        std::cerr << "Failed to send player movement. Error: " << WSAGetLastError() << "\n";
+//    }
+//}
 
 // Separate thread to handle incoming game state
 
-void receiveGameState() {
-    while (isRunning) {
-        char buffer[512];  // Buffer for incoming data
-        sockaddr_in fromAddr;
-        int fromSize = sizeof(fromAddr);
+void startNetworkThread() {
+    std::thread recvThread(listenForBroadcast);
+    recvThread.detach();
+    std::cout << "Started network thread.\n";
 
-        int recvLen = recvfrom(udpSocket, buffer, sizeof(buffer), 0,
-            (sockaddr*)&fromAddr, &fromSize);
-
-        if (recvLen > 0) {
-            uint8_t cmd = buffer[0];  // First byte is the command type
-
-            // Print received data
-            std::cout << "Received packet! Length: " << recvLen
-                << ", Command: " << (int)cmd << std::endl;
-
-            // If it's a movement update (example: command type 2)
-            if (cmd == 2) {
-                std::cout << "Received movement update" << std::endl;
-                // Optionally, parse the movement data
-                // receivePlayerMovement(buffer, recvLen);
-            }
-        }
-        else {
-            int error = WSAGetLastError();
-            if (error != WSAEWOULDBLOCK) {  // Ignore "Would Block" errors (normal for non-blocking sockets)
-                std::cerr << "recvfrom failed. Error: " << error << std::endl;
-            }
-        }
-
-        Sleep(10);  // Avoid CPU overload
-    }
+    //// Start broadcast listener in a separate thread
+    //if (broadcastSocket == INVALID_SOCKET) {
+    //    std::cerr << "Broadcast socket creation failed. Aborting network thread." << std::endl;
+    //    return;
+    //}
+    //std::thread broadcastThread(receiveBroadcastData, broadcastSocket);
+    //broadcastThread.detach();
+    //std::cout << "Started broadcast listener thread.\n";
 }
+
 
 // Cleanup
 void closeNetwork() {
@@ -297,12 +312,6 @@ void closeNetwork() {
     closesocket(udpSocket);
     WSACleanup();
     std::cout << "Network closed.\n";
-}
-
-void startNetworkThread() {
-    std::thread recvThread(receiveGameState);
-    recvThread.detach();
-    std::cout << "Started network thread.\n";
 }
 
 //
@@ -387,9 +396,9 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
     window.clear();
     
     // Test commands
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num1)) sendPlayerInput(CONN_REQUEST);
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num1)) sendPlayerInput(REQ_START_GAME);
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num2)) sendPlayerInput(ACK_CONN_REQUEST);
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num3)) sendPlayerInput(REQ_START_GAME);
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num3))  sendPlayerInput(ACK_CONN_REQUEST);
     //if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num4)) sendPlayerInput('D');
 
     // TO BE MOVED TO SERVER
