@@ -3,7 +3,7 @@
 
 // GLOBAL CONSTANTS
 constexpr float M_PI = 3.14159265358979323846f;
-constexpr int SCREEN_WIDTH = 1200;
+constexpr int SCREEN_WIDTH = 1600;
 constexpr int SCREEN_HEIGHT = 900;
 
 class Global {

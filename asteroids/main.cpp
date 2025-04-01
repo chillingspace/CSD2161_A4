@@ -5,7 +5,7 @@
 
 int main()
 {
-    // Create a window with 800x800 resolution
+    // Create a window with 1600x900 resolution
     sf::RenderWindow window(sf::VideoMode(SCREEN_WIDTH, SCREEN_HEIGHT), "Asteroids", sf::Style::Close | sf::Style::Titlebar);
     sf::Clock clock;
     std::cout << "SFML Window Created Successfully!\n";
