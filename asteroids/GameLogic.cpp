@@ -17,7 +17,7 @@ std::string SERVER_IP;
 int SERVER_PORT;
 #else
 #define SERVER_IP "192.168.1.15"  // Replace with your server's IP
-#define SERVER_PORT 3000
+#define SERVER_PORT 3001
 #endif
 
 SOCKET udpSocket;
@@ -95,8 +95,8 @@ void listenForBroadcast() {
     sockaddr_in recvAddr;
     recvAddr.sin_family = AF_INET;
     recvAddr.sin_addr.s_addr = INADDR_ANY;  // Listen on all network interfaces
-    recvAddr.sin_port = htons(udpBroadcastPort);
-
+    //recvAddr.sin_port = htons(udpClientBroadcastPort); 
+    recvAddr.sin_port = htons(udpBroadcastPort); // i dont understand how bindign works
     if (bind(udpSocket, (sockaddr*)&recvAddr, sizeof(recvAddr)) == SOCKET_ERROR) {
         std::cerr << "Bind failed: " << WSAGetLastError() << std::endl;
         closesocket(udpSocket);
