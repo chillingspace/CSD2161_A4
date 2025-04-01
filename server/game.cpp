@@ -70,7 +70,7 @@ void Game::updateGame() {
 				a.pos += a.vector * dt;
 			}
 
-			if ((curr - last_asteroid_spawn_time).count() > ASTEROID_SPAWN_INTERVAL_MS / 1000) {
+			if ((int)data.asteroids.size() < MAX_ASTEROIDS && (curr - last_asteroid_spawn_time).count() > ASTEROID_SPAWN_INTERVAL_MS / 1000) {
 				// spawn asteroid
 				last_asteroid_spawn_time = curr;
 

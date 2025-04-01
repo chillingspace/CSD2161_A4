@@ -23,6 +23,7 @@ public:
 	static constexpr int MIN_ASTEROID_RADIUS = 5;
 	static constexpr int MAX_ASTEROID_RADIUS = 20;
 	static constexpr float ASTEROID_SPEED = 80.f;
+	static constexpr int MAX_ASTEROIDS = 20;
 
 	static Game& getInstance();
 
