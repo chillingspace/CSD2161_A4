@@ -21,6 +21,8 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 #include "server.h"
 #include "game.h"
 
+#define VERBOSE_LOGGING
+#define JS_DEBUG
 
 Server& Server::getInstance() {
 	static Server instance;
@@ -356,17 +358,15 @@ void Server::requestHandler() {
 				constexpr float spawnY = 0;
 
 				memcpy(sbuf.data() + buf_idx, t_to_bytes(spawnX).data(), sizeof(float));
-				buf_idx += (int)sizeof(float) / 8;
+				buf_idx += (int)sizeof(float);
 				memcpy(sbuf.data() + buf_idx, t_to_bytes(spawnY).data(), sizeof(float));
-				buf_idx += (int)sizeof(float) / 8;
+				buf_idx += (int)sizeof(float);
 
 				// spawn rotation
-				constexpr int rotation_deg = 0;
+				constexpr float rotation_deg = 15.1f;
 
-				sbuf[buf_idx++] = (rotation_deg >> 24) & 0xff;
-				sbuf[buf_idx++] = (rotation_deg >> 16) & 0xff;
-				sbuf[buf_idx++] = (rotation_deg >> 8) & 0xff;
-				sbuf[buf_idx++] = rotation_deg & 0xff;
+				memcpy(sbuf.data() + buf_idx, t_to_bytes(rotation_deg).data(), sizeof(float));
+				buf_idx += (int)sizeof(float);
 
 				//// num lives
 				//sbuf[buf_idx++] = Game::NUM_START_LIVES;
@@ -379,21 +379,31 @@ void Server::requestHandler() {
 					std::cout << "Received data from " << senderIP << ":" << ntohs(senderAddr.sin_port) << std::endl;
 
 					while (true) {
-						// Debug: Print packet contents before sending
-						std::cout << "Sending packet: ";
-						for (int i = 0; i < sbuf.size(); ++i) {
-							std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(uint8_t)sbuf[i] << " ";
-						}
-						std::cout << std::dec << std::endl;
+#ifdef VERBOSE_LOGGING
+						{
+							// Debug: Print packet contents before sending
+							std::stringstream ss;
+							ss << "Sending packet: ";
+							for (int i = 0; i < sbuf.size(); ++i) {
+								ss << std::hex << std::setw(2) << std::setfill('0') << (int)(uint8_t)sbuf[i] << " ";
+							}
+							ss << std::dec << "\n";
 
-						// Send data
-						int bytesSent = sendData(sbuf, senderAddr);
-						if (bytesSent < 0) {
-							std::cerr << "sendData() failed: " << std::endl;
+							// Send data
+							int bytesSent = sendData(sbuf, senderAddr);
+							if (bytesSent < 0) {
+								ss << "sendData() failed: " << "\n";
+							}
+							else {
+								ss << "Sent " << bytesSent << " bytes to " << senderIP << ":" << ntohs(senderAddr.sin_port) << "\n";
+							}
+
+							{
+								std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
+								std::cout << ss.str() << std::endl;
+							}
 						}
-						else {
-							std::cout << "Sent " << bytesSent << " bytes to " << senderIP << ":" << ntohs(senderAddr.sin_port) << std::endl;
-						}
+#endif
 
 
 						{

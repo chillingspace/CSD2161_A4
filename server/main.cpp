@@ -1,10 +1,6 @@
 #include "server.h"
 #include "game.h"
 
-
-#define VERBOSE_LOGGING
-#define JS_DEBUG
-
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
