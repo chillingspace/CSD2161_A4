@@ -18,7 +18,8 @@ udp broadcast port - 2 bytes        // everything after CONN_ACCEPTED will be us
 spawn pos x - 4 bytes [float]
 spawn pos y - 4 bytes [float]
 spawn rotation degrees - 4 bytes [float]
-spawn lives - 1 byte
+~~spawn lives - 1 byte~~ // removed spawn lives
+16 bytes total
 ```
 
 ## ACK_CONN_REQUEST [CLIENT]
