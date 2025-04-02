@@ -238,7 +238,7 @@ void listenForBroadcast() {
                         s.player_color = player_colors[s.sid];
 
                         updatedPlayers.push_back(s);
-
+                        updatedEntities = true;
                         std::cout << "Spaceship SID: " << static_cast<int>(s.sid)
                             << " | Pos: (" << s.position.x << ", " << s.position.y << ")"
                             << " | Angle : " << s.angle
@@ -310,7 +310,7 @@ void listenForBroadcast() {
             }
 
             buffer[bytesReceived] = '\0';
-            std::cout << "Received broadcast from " << SERVER_IP << ": " << buffer << std::endl;
+            //std::cout << "Received broadcast from " << SERVER_IP << ": " << buffer << std::endl;
 
         }
         else if (bytesReceived == -1) {
@@ -746,22 +746,20 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 }
 void GameLogic::applyEntityUpdates() {
     // Update players
-
-    for (const auto& updatedPlayer : updatedPlayers) {
-        if (players.count(updatedPlayer.sid)) {
-            // Update existing player
-            Player* p = players[updatedPlayer.sid];
-            p->position = updatedPlayer.position;
-            p->angle = updatedPlayer.angle;
-            p->lives_left = updatedPlayer.lives_left;
-            p->score = updatedPlayer.score;
-        }
-        else {
-
-        }
-    }
-
     if (updatedEntities) {
+        for (const auto& updatedPlayer : updatedPlayers) {
+            if (players.count(updatedPlayer.sid)) {
+                // Update existing player
+                Player* p = players[updatedPlayer.sid];
+                p->position = updatedPlayer.position;
+                p->angle = updatedPlayer.angle;
+                p->lives_left = updatedPlayer.lives_left;
+                p->score = updatedPlayer.score;
+            }
+            else {
+
+            }
+        }
         // Remove existing bullets
         entities.erase(std::remove_if(entities.begin(), entities.end(), [](Entity* e) {
             if (Bullet* bullet = dynamic_cast<Bullet*>(e)) {

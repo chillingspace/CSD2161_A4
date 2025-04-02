@@ -3,7 +3,7 @@
 
 // TO BE MOVED TO SERVER
 // PLAYER VARIABLES
-constexpr float TURN_SPEED = 500.f;
+constexpr float TURN_SPEED = 30.f;
 constexpr float ACCELERATION = 500.f; // Adjust as needed
 constexpr float FRICTION = 0.995f;     // Lower = more drag
 
