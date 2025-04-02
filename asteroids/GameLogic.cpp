@@ -285,9 +285,13 @@ void listenForBroadcast() {
                         }
 
                         Asteroid a;
-                        memcpy(&a.position.x, &buffer[offset], 4);
-                        memcpy(&a.position.y, &buffer[offset + 4], 4);
-                        memcpy(&a.size, &buffer[offset + 8], 4);
+
+                        a.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+                        offset += sizeof(float);
+                        a.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+                        offset += sizeof(float);
+                        a.size = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+                        offset += sizeof(float);
 
                         offset += 8;
                         asteroids.push_back(a);
