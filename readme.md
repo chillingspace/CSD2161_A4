@@ -70,14 +70,14 @@ vector y - 4 bytes
 
 ~~asteroid id - 4 bytes~~
 
-<details>
-<summary>removed</summary>
-
 ## ACK_SELF_SPACESHIP [SERVER RELIABLE]
 ```cpp
 cmd - 1 byte
 session id - 1 byte
 ```
+
+<details>
+<summary>removed</summary>
 
 ## ACK_ACK_SELF_SPACESHIP [CLIENT]
 used to tell server that client has received ack for payload, as client stores data that was not received by server.
