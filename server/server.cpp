@@ -450,7 +450,7 @@ void Server::requestHandler() {
 						std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT_MS));
 
 						elapsed = std::chrono::high_resolution_clock::now() - start;
-						if (elapsed.count() > DISCONNECTION_TIMEOUT_DURATION_MS / 1000) {
+						if (elapsed.count() >= DISCONNECTION_TIMEOUT_DURATION_MS / 1000.f) {
 							// disconnect client
 							{
 								std::lock_guard<std::mutex> spaceshipsdatalock(Game::getInstance().data_mutex);
@@ -466,7 +466,7 @@ void Server::requestHandler() {
 					}
 					{
 						std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
-						std::cout << "Connection accepted. Sent data to client. Client ACKed: " << sid << std::endl;
+						std::cout << "Connection accepted. Sent data to client. Client ACKed SID: " << sid << std::endl;
 					}
 					};
 				//std::thread t(reliableSender);
