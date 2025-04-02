@@ -19,7 +19,8 @@
 std::string SERVER_IP;
 int SERVER_PORT;
 #else
-#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
+//#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
+#define SERVER_IP "192.168.0.23"
 #define SERVER_PORT 3001
 #endif
 

@@ -88,6 +88,21 @@ void Game::updateGame() {
 			// update asteroids
 			for (Asteroid& a : data.asteroids) {
 				a.pos += a.vector * dt;
+
+				// wrap asteroid positions
+				if (a.pos.x < -WINDOW_WIDTH) {
+					a.pos.x = WINDOW_WIDTH;
+				}
+				else if (a.pos.x > WINDOW_WIDTH) {
+					a.pos.x = -WINDOW_WIDTH;
+				}
+
+				if (a.pos.y < -WINDOW_HEIGHT) {
+					a.pos.y = WINDOW_HEIGHT;
+				}
+				else if (a.pos.y > WINDOW_HEIGHT) {
+					a.pos.y = -WINDOW_HEIGHT;
+				}
 			}
 
 			if ((int)data.asteroids.size() < MAX_ASTEROIDS && std::chrono::duration<float, std::milli>(curr - last_asteroid_spawn_time).count() > ASTEROID_SPAWN_INTERVAL_MS) {
