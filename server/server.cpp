@@ -580,7 +580,7 @@ void Server::requestHandler() {
 				break;
 			}
 			case SELF_SPACESHIP: {
-				std::cout << "Received self spaceship." << std::endl;
+				//std::cout << "Received self spaceship." << std::endl;
 
 				std::vector<char> sbuf;
 				sbuf.push_back(ACK_SELF_SPACESHIP);
