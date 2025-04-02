@@ -497,6 +497,8 @@ void Server::requestHandler() {
 
 				buf[0] = START_GAME;
 
+				Game::getInstance().data.reset();
+
 				int num_conns;
 				{
 					std::lock_guard<std::mutex> lock(Game::getInstance().data_mutex);
