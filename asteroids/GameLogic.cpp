@@ -11,7 +11,7 @@
 
 #define LOCALHOST_DEV       // for developing on 1 machine
 
-#define JS_DEBUG
+//#define JS_DEBUG
 
 #ifndef JS_DEBUG
 

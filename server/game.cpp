@@ -295,7 +295,11 @@ void Game::updateGame() {
 				data.reset();
 			}
 		};
-		std::thread rbc(reliable_bc);
+		//std::thread rbc(reliable_bc);
+		{
+			std::lock_guard<std::mutex> tplock(Server::threadpool_mutex);
+			Server::threadpool.push_back(std::async(std::launch::async, reliable_bc));
+		}
 
 		prevGameRunning = gameRunning;
 	}

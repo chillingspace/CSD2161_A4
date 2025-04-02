@@ -35,6 +35,7 @@ int main()
 		}
 	);
 	std::thread reqHandlerThread([&s]() {s.requestHandler(); });
+	std::thread threadpoolManagerThread(Server::threadpoolManager);
 
 	auto quitServerListener = []() {
 		// quit server if `q` is received
@@ -46,14 +47,6 @@ int main()
 		};
 	quitServerListener();
 
-	s.cleanup();
-
-	// ----------~---------------------------------------------------------------
-	// Clean-up after Winsock.
-	//
-	// WSACleanup()
-	// -------------------------------------------------------------------------
-	// free dynamically allocated memory
 	s.udpListenerRunning = false;
 	Game::getInstance().gameRunning = false;
 	Game::getInstance().gameThreadRunning = false;
@@ -61,6 +54,9 @@ int main()
 	recvthread.join();
 	gameUpdateThread.join();
 	reqHandlerThread.join();
+	threadpoolManagerThread.join();
+
+	s.cleanup();
 
 	WSACleanup();
 

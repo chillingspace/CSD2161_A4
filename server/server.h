@@ -48,6 +48,7 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 #include <mutex>
 #include <deque>
 #include <bitset>
+#include <future>
 
 using SESSION_ID = int;
 
@@ -201,6 +202,14 @@ public:
 	int init();
 
 	void cleanup();
+
+
+
+
+	static std::deque<std::future<void>> threadpool;
+	static std::mutex threadpool_mutex;
+
+	static void threadpoolManager();
 };
 
 
