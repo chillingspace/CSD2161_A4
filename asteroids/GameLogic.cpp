@@ -26,6 +26,7 @@ int SERVER_PORT;
 
 std::thread recvUdpThread;
 std::thread recvBroadcastThread;
+std::thread keepAliveThread;
 
 SOCKET udpSocket;
 sockaddr_in serverAddr;
@@ -45,7 +46,8 @@ enum CLIENT_REQUESTS {
     REQ_START_GAME,
     ACK_START_GAME,
     SELF_SPACESHIP,
-    ACK_END_GAME
+    ACK_END_GAME,
+    KEEP_ALIVE
 };
 
 enum SERVER_MSGS {
@@ -481,6 +483,16 @@ bool initNetwork() {
 void startNetworkThread() {
     recvUdpThread = std::thread(listenForUdpMessages);
     recvBroadcastThread = std::thread(listenForBroadcast);
+    keepAliveThread = std::thread([]() {
+        std::vector<char> buf;
+        buf.push_back(KEEP_ALIVE);
+        buf.push_back(current_session_id);
+        while (isRunning) {
+            sendData(buf);
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+        }
+        }
+    );
     std::cout << "Started network threads.\n";
 }
 
@@ -495,6 +507,10 @@ void closeNetwork() {
 
     if (recvBroadcastThread.joinable()) {
         recvBroadcastThread.join();
+    }
+
+    if (keepAliveThread.joinable()) {
+        keepAliveThread.join();
     }
 
     closesocket(udpSocket);

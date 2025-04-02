@@ -356,6 +356,11 @@ void Server::requestHandler() {
 				}
 
 				if (num_players >= Game::MAX_PLAYERS || Game::getInstance().gameRunning) {
+					{
+						std::lock_guard<std::mutex> coutlock(_stdoutMutex);
+						std::cout << "Connection refused. " << (num_players >= Game::MAX_PLAYERS ? "Too many players." : "Game is running") << std::endl;
+					}
+
 					sbuf[0] = CONN_REJECTED;
 					sendData(sbuf, senderAddr);
 					break;
@@ -645,6 +650,14 @@ void Server::requestHandler() {
 					Game::getInstance().data.bullets.push_back(b);
 				}
 
+				break;
+			}
+			case KEEP_ALIVE: {
+				int sid = rbuf[1];
+
+				std::lock_guard<std::mutex> alivelock(keep_alive_mutex);
+				keep_alive_map[sid] = std::chrono::high_resolution_clock::now();
+				break;
 			}
 			}
 		}
@@ -773,6 +786,48 @@ void Server::cleanup() {
 	}
 }
 
+
+void Server::keepAliveChecker() {
+	while (udpListenerRunning) {
+		auto now = std::chrono::high_resolution_clock::now();
+		{
+			std::lock_guard<std::mutex> kalock(keep_alive_mutex);
+			for (auto it = keep_alive_map.begin(); it != keep_alive_map.end();) {
+
+				auto sid = it->first;
+				auto last_updated = it->second;
+
+				if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_updated).count() > KEEP_ALIVE_TIMEOUT_MS) {
+					// POTENTIAL DEADLOCKS, BE CAREFUL
+
+					// remove spaceship from game, client timed out
+					{
+						std::lock_guard<std::mutex> gdlock(Game::getInstance().data_mutex);
+						for (auto it = Game::getInstance().data.spaceships.begin(); it != Game::getInstance().data.spaceships.end();) {
+							if (it->sid == sid) {
+								it = Game::getInstance().data.spaceships.erase(it);
+								break;
+							}
+							++it;
+						}
+					}
+
+					{
+						std::lock_guard<std::mutex> coutlock(_stdoutMutex);
+						std::cout << "Client " << sid << " timed out" << std::endl;
+					}
+
+					it = keep_alive_map.erase(it);
+				}
+				else {
+					++it;
+				}
+			}
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(KEEP_ALIVE_TIMEOUT_MS));
+	}
+}
 
 /* thread management */
 

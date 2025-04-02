@@ -31,7 +31,7 @@ public:
 
 	static constexpr int NUM_START_LIVES = 3;
 	static constexpr float BULLET_RADIUS = 2.f;
-	static constexpr float SPACESHIP_RADIUS = 5.f;
+	static constexpr float SPACESHIP_RADIUS = 20.f;
 	
 	static constexpr int GAME_DURATION_S = 60;
 	static constexpr int ASTEROID_SPAWN_INTERVAL_MS = 1000;

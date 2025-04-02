@@ -264,6 +264,10 @@ void Game::updateGame() {
 				std::lock_guard<std::mutex> lock(data_mutex);
 				data.reset();
 			}
+			{
+				std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
+				std::cout << "Time is up, ending game.." << std::endl;
+			}
 		}
 
 		// check if all spaceships are dead(out of lives)
@@ -272,6 +276,10 @@ void Game::updateGame() {
 			{
 				std::lock_guard<std::mutex> lock(data_mutex);
 				data.reset();
+			}
+			{
+				std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
+				std::cout << "All players are dead or disconnected, ending game.." << std::endl;
 			}
 		}
 	}

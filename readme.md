@@ -129,6 +129,12 @@ cmd - 1 byte
 session id - 1 byte
 ```
 
+## KEEP_ALIVE [CLIENT]
+```
+cmd - 1 byte
+session id - 1 byte
+```
+
 
 # Flow
 
@@ -162,6 +168,7 @@ Note: all vectors will not be normalized (normalized vector * velocity) to save 
 		SELF_SPACESHIP,
 		ACK_ALL_ENTITIES,
 		ACK_END_GAME,
+		KEEP_ALIVE
 	};
 
 	enum SERVER_MSGS {

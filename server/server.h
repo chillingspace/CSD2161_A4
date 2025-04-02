@@ -81,6 +81,9 @@ public:
 	//std::unordered_map<SESSION_ID, sockaddr_in> udp_clients{};
 	//std::mutex udp_clients_mutex{};
 
+	std::unordered_map<SESSION_ID, decltype(std::chrono::high_resolution_clock::now())> keep_alive_map;
+	std::mutex keep_alive_mutex;
+
 	bool udpListenerRunning = true;
 
 	// ack stuff
@@ -117,6 +120,7 @@ public:
 		SELF_SPACESHIP,
 		//ACK_ALL_ENTITIES,
 		ACK_END_GAME,
+		KEEP_ALIVE
 	};
 
 	enum SERVER_MSGS {
@@ -204,6 +208,8 @@ public:
 	void cleanup();
 
 
+	static constexpr int KEEP_ALIVE_TIMEOUT_MS = 5000;
+	void keepAliveChecker();
 
 
 	static std::deque<std::future<void>> threadpool;
