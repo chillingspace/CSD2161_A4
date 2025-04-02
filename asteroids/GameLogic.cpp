@@ -12,6 +12,9 @@
 
 #define LOCALHOST_DEV       // for developing on 1 machine
 
+
+std::string playername;
+
 #define JS_DEBUG
 
 #ifndef JS_DEBUG
@@ -339,6 +342,9 @@ bool initNetwork() {
     std::cout << "Enter Server Port: ";
     std::getline(std::cin, portInput);
 
+    std::cout << "Name: ";
+    std::getline(std::cin, playername);
+
     try {
         SERVER_PORT = std::stoi(portInput);
     }
@@ -346,6 +352,8 @@ bool initNetwork() {
         std::cerr << "Invalid port number. Using default port 1111.\n";
         SERVER_PORT = 1111;
     }
+#else
+    playername = "GWEE BOON XUEN SEAN";
 #endif
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -376,6 +384,8 @@ bool initNetwork() {
     
     // Send connection request
     std::vector<char> conn_buffer = { CONN_REQUEST };
+    conn_buffer.push_back((char)playername.size());
+    conn_buffer.insert(conn_buffer.end(), playername.begin(), playername.end());
     sendData(conn_buffer);
     std::cout << "Sent connection request to server. Waiting for response...\n";
 

@@ -114,6 +114,7 @@ public:
 		float rotation{};
 		int lives_left{};
 		int score{};
+		std::string name{};
 	};
 
 	class Data {

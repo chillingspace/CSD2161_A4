@@ -3,6 +3,8 @@
 ## CONN_REQUEST [CLIENT]
 ```cpp
 cmd - 1 byte
+player name length - 1 byte
+player name - n bytes
 ```
 
 ## CONN_REJECTED [SERVER RELIABLE]
@@ -36,6 +38,12 @@ cmd - 1 byte
 ## START_GAME [SERVER RELIABLE]
 ```cpp
 cmd - 1 byte
+num players - 1 byte
+
+// for n players
+sid - 1 byte
+player name length -  1 byte
+player name - n bytes
 ```
 
 ## ACK_START_GAME [CLIENT]
@@ -121,6 +129,11 @@ pos y - 4 bytes [float]
 ```cpp
 cmd - 1 byte
 winner session id - 1 byte
+all time high score 1 - 1 byte
+all time high score 2 - 1 byte
+all time high score 3 - 1 byte
+all time high score 4 - 1 byte
+all time high score 5 - 1 byte
 ```
 
 ## ACK_END_GAME [CLIENT]
@@ -134,6 +147,8 @@ session id - 1 byte
 cmd - 1 byte
 session id - 1 byte
 ```
+
+## 
 
 
 # Flow

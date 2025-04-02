@@ -378,6 +378,10 @@ void Server::requestHandler() {
 				new_spaceship.rotation = 0.f;
 				new_spaceship.lives_left = Game::NUM_START_LIVES;
 				new_spaceship.score = 0;
+				// get player name
+				for (char i{}; i < rbuf[1]; i++) {
+					new_spaceship.name += rbuf[2 + i];
+				}
 				{
 					std::lock_guard<std::mutex> spaceshipsdatalock(Game::getInstance().data_mutex);
 					Game::getInstance().data.spaceships.push_back(new_spaceship);
@@ -489,6 +493,8 @@ void Server::requestHandler() {
 					std::lock_guard<std::mutex> tplock(threadpool_mutex);
 					threadpool.push_back(std::async(std::launch::async, reliableSender));
 				}
+
+
 				break;
 			}
 			case REQ_START_GAME: {

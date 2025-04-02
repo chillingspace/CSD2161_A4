@@ -300,6 +300,11 @@ void Game::updateGame() {
 			);
 		}
 
+		// get all time highest scores from file
+		{
+
+		}
+
 		std::vector<char> ebuf;
 		ebuf.push_back(Server::END_GAME);
 		ebuf.push_back(winner_sid_score.first);
