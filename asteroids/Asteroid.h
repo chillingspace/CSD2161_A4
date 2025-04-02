@@ -15,7 +15,7 @@ class Asteroid : public Entity {
 
     public:
         sf::ConvexShape shape;
-        float size;
+        float radius;
 
         // Asteroid constructor
         Asteroid();
@@ -27,6 +27,8 @@ class Asteroid : public Entity {
 
         // Draw Asteroid
         void render(sf::RenderWindow& window) override;
+
+        void setRadius(float newRadius);
 
         void spawnOnEdge();
 };

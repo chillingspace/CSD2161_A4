@@ -19,8 +19,8 @@
 std::string SERVER_IP;
 int SERVER_PORT;
 #else
-//#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
-#define SERVER_IP "192.168.0.23"
+#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
+//#define SERVER_IP "192.168.0.23"
 #define SERVER_PORT 3001
 #endif
 
@@ -287,10 +287,12 @@ void listenForBroadcast() {
                         offset += sizeof(float);
                         a.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                         offset += sizeof(float);
-
+                        a.radius = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+                        offset += sizeof(float);
+                        a.setRadius(a.radius);
                         updatedAsteroids.push_back(a);
                         updatedEntities = true;
-                        //std::cout << "Asteroid Pos: (" << a.position.x << ", " << a.position.y << ")" << "\n";
+                        //std::cout << "Asteroid Pos: (" << a.position.x << ", " << a.position.y << ") Radius = " << a.radius << "\n";
                     }
 
 
@@ -801,9 +803,6 @@ void GameLogic::applyEntityUpdates() {
                 p->angle = updatedPlayer.angle;
                 p->lives_left = updatedPlayer.lives_left;
                 p->score = updatedPlayer.score;
-            }
-            else {
-
             }
         }
         // Remove existing bullets
