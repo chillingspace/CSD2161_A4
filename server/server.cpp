@@ -352,7 +352,7 @@ void Server::requestHandler() {
 					num_players = (int)Game::getInstance().data.spaceships.size();
 				}
 
-				if (num_players >= Game::MAX_PLAYERS) {
+				if (num_players >= Game::MAX_PLAYERS || Game::getInstance().gameRunning) {
 					sbuf[0] = CONN_REJECTED;
 					sendData(sbuf, senderAddr);
 					break;
