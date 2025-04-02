@@ -40,23 +40,23 @@ Player::Player(uint8_t sid, sf::Color player_color, sf::Vector2f pos, float rot)
 void Player::update(float delta_time)
 {
     if (!is_alive) {
-        death_timer -= delta_time;
+        //death_timer -= delta_time;
 
-        // Shrink gradually over time
-        float scale_factor = std::max(0.1f, death_timer / DEATH_TIMER); // Prevents negative size
-        vertices[0].position = sf::Vector2f(20 * scale_factor, 0);
-        vertices[1].position = sf::Vector2f(-20 * scale_factor, -15 * scale_factor);
-        vertices[2].position = sf::Vector2f(-20 * scale_factor, 15 * scale_factor);
+        //// Shrink gradually over time
+        //float scale_factor = std::max(0.1f, death_timer / DEATH_TIMER); // Prevents negative size
+        //vertices[0].position = sf::Vector2f(20 * scale_factor, 0);
+        //vertices[1].position = sf::Vector2f(-20 * scale_factor, -15 * scale_factor);
+        //vertices[2].position = sf::Vector2f(-20 * scale_factor, 15 * scale_factor);
 
-        // Fade out by decreasing alpha gradually
-        for (size_t i = 0; i < vertices.getVertexCount(); i++) {
-            vertices[i].color.a = static_cast<sf::Uint8>(255 * (scale_factor)); // Decrease alpha proportionally to scale factor
-        }
+        //// Fade out by decreasing alpha gradually
+        //for (size_t i = 0; i < vertices.getVertexCount(); i++) {
+        //    vertices[i].color.a = static_cast<sf::Uint8>(255 * (scale_factor)); // Decrease alpha proportionally to scale factor
+        //}
 
-        if (death_timer <= 0.f) {
-            respawn();
-        }
-        return; // Don't process input while dead
+        //if (death_timer <= 0.f) {
+        //    respawn();
+        //}
+        //return; // Don't process input while dead
     }
 
     if (invulnerability_timer > 0.f) {
@@ -120,15 +120,15 @@ void Player::render(sf::RenderWindow& window)
 
 // TO BE MOVED TO SERVER
 void Player::death() {
-    is_alive = false;
-    death_timer = DEATH_TIMER;
-    invulnerability_timer = 0.f;
+    //is_alive = false;
+    //death_timer = DEATH_TIMER;
+    //invulnerability_timer = 0.f;
 }
 
 // TO BE MOVED TO SERVER
 void Player::respawn() {
     is_alive = true;
-    invulnerability_timer = INVULNERABILITY_TIME;
+    //invulnerability_timer = INVULNERABILITY_TIME;
 
     position = sf::Vector2f(SCREEN_WIDTH / 2.f, SCREEN_HEIGHT / 2.f);
     angle = 0.f;
