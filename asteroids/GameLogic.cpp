@@ -22,6 +22,9 @@ int SERVER_PORT;
 #define SERVER_PORT 3001
 #endif
 
+std::thread recvUdpThread;
+std::thread recvBroadcastThread;
+
 SOCKET udpSocket;
 sockaddr_in serverAddr;
 SOCKET udpBroadcastSocket = -1;
@@ -101,12 +104,43 @@ void sendData(const std::vector<char>& buffer) {
     if (sendResult == SOCKET_ERROR) {
         std::cerr << "Failed to send data: " << WSAGetLastError() << "\n";
     }
-    else {
-        std::cout << "Sending data" << std::endl;
+    else {/*
+        std::cout << "Sending data" << std::endl;*/
     }
 }
 
+// Handles ack from server
+void listenForUdpMessages() {
+    char buffer[MAX_PACKET_SIZE];
+    sockaddr_in senderAddr;
+    int senderAddrSize = sizeof(senderAddr);
 
+    std::cout << "Listening for UDP messages...\n";
+
+    while (isRunning) {
+        int bytesReceived = recvfrom(udpSocket, buffer, MAX_PACKET_SIZE, 0,
+            (sockaddr*)&senderAddr, &senderAddrSize);
+
+        if (bytesReceived > 0) {
+            uint8_t cmd = buffer[0]; // First byte is the command identifier
+
+            switch (cmd) {
+                default:
+                    std::cerr << "Unknown UDP message received: " << (int)cmd << "\n";
+                    break;
+            }
+        }
+        else if (bytesReceived == SOCKET_ERROR && WSAGetLastError() != WSAEWOULDBLOCK) {
+            std::cerr << "UDP recvfrom error: " << WSAGetLastError() << "\n";
+        }
+
+        Sleep(1);  // Prevent high CPU usage
+    }
+
+    closesocket(udpSocket);
+}
+
+// Handles every thing that all players need to know
 void listenForBroadcast() {
     if (udpBroadcastSocket == -1) {
         udpBroadcastSocket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -162,8 +196,8 @@ void listenForBroadcast() {
                     }
 
                     // Example: Send ACK_START_GAME back to sender
-                    std::vector<char> buffer = { ACK_START_GAME };
-                    sendData(buffer);
+                    std::vector<char> send_buffer = { ACK_START_GAME };
+                    sendData(send_buffer);
                     break;
 
             }
@@ -225,6 +259,9 @@ void initNetwork() {
 #else
     inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
 #endif
+
+    // HANDLE UDP HANDSHAKE FIRST
+    
     // Send connection request
     std::vector<char> conn_buffer = { CONN_REQUEST };
     sendData(conn_buffer);
@@ -324,25 +361,26 @@ void initNetwork() {
 // Separate thread to handle incoming game state
 
 void startNetworkThread() {
-    std::thread recvThread(listenForBroadcast);
-    recvThread.detach();        // !TODO: should not detach, is infinite loop and will result in resource leak
-    std::cout << "Started network thread.\n";
-
-    //// Start broadcast listener in a separate thread
-    //if (broadcastSocket == INVALID_SOCKET) {
-    //    std::cerr << "Broadcast socket creation failed. Aborting network thread." << std::endl;
-    //    return;
-    //}
-    //std::thread broadcastThread(receiveBroadcastData, broadcastSocket);
-    //broadcastThread.detach();
-    //std::cout << "Started broadcast listener thread.\n";
+    recvUdpThread = std::thread(listenForUdpMessages);
+    recvBroadcastThread = std::thread(listenForBroadcast);
+    std::cout << "Started network threads.\n";
 }
 
 
 // Cleanup
 void closeNetwork() {
-    isRunning = false;
+    isRunning = false; // Signal threads to stop
+
+    if (recvUdpThread.joinable()) {
+        recvUdpThread.join();
+    }
+
+    if (recvBroadcastThread.joinable()) {
+        recvBroadcastThread.join();
+    }
+
     closesocket(udpSocket);
+    closesocket(udpBroadcastSocket);
     WSACleanup();
     std::cout << "Network closed.\n";
 }
@@ -427,7 +465,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
         // Wait for Enter key to restart
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
             //entities.clear();
-
+            std::cout << "Sending REQ_START_GAME" << std::endl;
             std::vector<char> conn_buffer = { REQ_START_GAME }; 
             sendData(conn_buffer);
 

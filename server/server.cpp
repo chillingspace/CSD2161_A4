@@ -284,6 +284,7 @@ void Server::udpListener() {
 				std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
 				std::cout << "Client with SID " << sid << " acknowledged start game." << std::endl;
 				std::cout << "Current ack count: " << ack_start_game_clients.size() << std::endl;
+
 			}
 			break;
 		}
@@ -387,8 +388,8 @@ void Server::requestHandler() {
 				sbuf[buf_idx++] = serverUdpPortBroadcast & 0xff;
 
 				// spawn locations (world pos)
-				constexpr float spawnX = 0;
-				constexpr float spawnY = 0;
+				constexpr float spawnX = 500.f;
+				constexpr float spawnY = 500.f;
 
 				memcpy(sbuf.data() + buf_idx, t_to_bytes(spawnX).data(), sizeof(float));
 				buf_idx += (int)sizeof(float);
@@ -475,12 +476,15 @@ void Server::requestHandler() {
 			}
 			case REQ_START_GAME: {
 				std::cout << "Received start game request." << std::endl;
+
+				if (Game::getInstance().gameRunning) {
+					return;
+				}
+
 				std::vector<char> buf(16);
 				//buf.resize(MAX_PACKET_SIZE);
 
 				buf[0] = START_GAME;
-				Game::getInstance().data.reset();
-				Game::getInstance().gameRunning = true;
 
 				int num_conns;
 				{
@@ -534,7 +538,9 @@ void Server::requestHandler() {
 
 						std::cout << "Current num_acks: " << num_acks << " / num_conns: " << num_conns << std::endl;
 						if (num_acks >= num_conns) {
-							std::cout << "EXITING LOOP" << std::endl;
+							std::cout << "Starting Game" << std::endl;
+							Game::getInstance().data.reset();
+							Game::getInstance().gameRunning = true;
 							break;
 						}
 
