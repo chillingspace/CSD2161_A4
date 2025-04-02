@@ -10,6 +10,16 @@ float Global::randomFloat(float min, float max) {
     return dist(rng);
 }
 
+void Global::addToLeaderboard(std::map<int, std::string, std::greater<int>>& leaderboard, int score, const std::string& playerName)
+{
+    leaderboard[score] = playerName; // Adds or updates the player's score
+
+    // If there are more than 5 entries, remove the lowest score
+    if (leaderboard.size() > 5) {
+        leaderboard.erase(std::prev(leaderboard.end())); // Remove the lowest score
+    }
+}
+
 
 float Global::btof(const std::vector<char>& bytes) {
     if (bytes.size() != sizeof(float)) {
@@ -48,3 +58,40 @@ void Global::threadpoolManager() {
         // at this point, all threads have completed
     }
 }
+
+
+//// TO BE MOVED TO SERVER
+//bool GameLogic::checkCollision(Entity* a, Entity* b) {
+//    // Compute the distance between the two entities
+//    float distance = sqrt(pow(a->position.x - b->position.x, 2) +
+//        pow(a->position.y - b->position.y, 2));
+//
+//    // Determine radius (approximate using bounding boxes)
+//    float a_radius = 0.f, b_radius = 0.f;
+//
+//    if (Asteroid* asteroid = dynamic_cast<Asteroid*>(a)) {
+//        a_radius = std::max(asteroid->shape.getLocalBounds().width,
+//            asteroid->shape.getLocalBounds().height) / 2.f;
+//    }
+//    else if (Player* player = dynamic_cast<Player*>(a)) {
+//        a_radius = 20.f; // Approximate player size (adjust based on your ship size)
+//    }
+//    else if (Bullet* bullet = dynamic_cast<Bullet*>(a)) {
+//        a_radius = 5.f;  // Small bullet size
+//    }
+//
+//    if (Asteroid* asteroid = dynamic_cast<Asteroid*>(b)) {
+//        b_radius = std::max(asteroid->shape.getLocalBounds().width,
+//            asteroid->shape.getLocalBounds().height) / 2.f;
+//    }
+//    else if (Player* player = dynamic_cast<Player*>(b)) {
+//        b_radius = 20.f; // Approximate player size
+//    }
+//    else if (Bullet* bullet = dynamic_cast<Bullet*>(b)) {
+//        b_radius = 5.f;  // Small bullet size
+//    }
+//
+//    // Collision check (distance must be smaller than sum of radii)
+//    return distance < (a_radius + b_radius);
+//}
+

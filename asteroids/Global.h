@@ -9,6 +9,7 @@
 #include <deque>
 #include <future>
 #include <mutex>
+#include <map>
 
 // GLOBAL CONSTANTS
 constexpr float M_PI = 3.14159265358979323846f;
@@ -36,7 +37,7 @@ public:
      *
      */
 
-
+    static void addToLeaderboard(std::map<int, std::string, std::greater<int>>& leaderboard, int score, const std::string& playerName);
 
     template <typename T>
     static std::vector<char> t_to_bytes(T num) {

@@ -14,8 +14,8 @@
 
 
 std::string playername;
-
-#define JS_DEBUG
+//
+//#define JS_DEBUG
 
 #ifndef JS_DEBUG
 
@@ -67,6 +67,8 @@ std::vector<Entity*> GameLogic::entities{};
 //std::list<Entity*> GameLogic::entitiesToDelete{};
 //std::list<Entity*> GameLogic::entitiesToAdd{};
 std::unordered_map<uint8_t, Player*> GameLogic::players{};
+std::unordered_map<int, std::string> playersNames;
+std::map<int, std::string, std::greater<int>> leaderboard;
 // Store the most recent entity updates in a global variable
 std::vector<Player> updatedPlayers;
 std::vector<Bullet> updatedBullets;
@@ -84,6 +86,7 @@ float GameLogic::asteroid_spawn_time;
 sf::Font font;
 sf::Text game_over_text;
 sf::Text player_score_text;
+sf::Text player_leaderboard;
 
 // Colors of the player
 std::vector<sf::Color> player_colors = {
@@ -219,15 +222,13 @@ void listenForBroadcast() {
                         std::cout << "starting" << std::endl;
                     }
 
-                    // !TODO: sean pls populate ur thing
-                    std::unordered_map<int, std::string> placeholder_sid_playername_map;
 
                     int offset = 2;
                     for (int i{}; i < buffer[1]; i++) {     // iterate through num players
                         int sid = buffer[offset++];
                         int playernamesize = buffer[offset++];
                         for (int j{}; j < playernamesize; j++) {    // iterate through num chars in player name
-                            placeholder_sid_playername_map[sid] += buffer[offset+j];
+                            playersNames[sid] += buffer[offset+j];
                         }
                         offset += playernamesize;
                     }
@@ -495,26 +496,7 @@ bool initNetwork() {
     return connected;
 }
 
-//
-//void sendPlayerMovement(uint8_t sessionID, float posX, float posY, float vecX, float vecY, float rotation) {
-//    PlayerMovementPacket packet;
-//    packet.cmd = 1; // Movement command
-//    packet.sessionID = sessionID;
-//    packet.posX = posX;
-//    packet.posY = posY;
-//    packet.vecX = vecX;
-//    packet.vecY = vecY;
-//    packet.rotation = rotation;
-//
-//    int sendResult = sendto(udpSocket, (char*)&packet, sizeof(packet), 0,
-//        (sockaddr*)&serverAddr, sizeof(serverAddr));
-//    if (sendResult == SOCKET_ERROR) {
-//        std::cerr << "Failed to send player movement. Error: " << WSAGetLastError() << "\n";
-//    }
-//}
-
 // Separate thread to handle incoming game state
-
 void startNetworkThread() {
     recvUdpThread = std::thread(listenForUdpMessages);
     recvBroadcastThread = std::thread(listenForBroadcast);
@@ -559,7 +541,7 @@ void GameLogic::init() {
     if (!success) {
         exit(1);
     }
-
+    Global::addToLeaderboard(leaderboard, 1200, "Player 1");
     startNetworkThread();  // Start receiving data
 
     // Score Init
@@ -568,9 +550,13 @@ void GameLogic::init() {
     player_score_text.setFont(font);
     player_score_text.setCharacterSize(30);
 
+    player_leaderboard.setFont(font);
+    player_leaderboard.setCharacterSize(30);
+
+
     game_over_text.setFont(font);
     game_over_text.setFillColor(sf::Color::White);
-    game_over_text.setPosition(sf::Vector2f(200.f, SCREEN_HEIGHT / 2.f)); // Adjust as needed
+    game_over_text.setPosition(sf::Vector2f(300.f, 50.f)); // Adjust as needed
     game_over_text.setCharacterSize(60);
 
     is_game_over = true;
@@ -609,10 +595,26 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
     if (is_game_over) {
         game_over_text.setString("Press Enter to Start a New Match");
         window.draw(game_over_text);
+        int i = 0;
+        for (auto& [score, player] : leaderboard) {
+            if (i >= 5) break;  // Show only the top 5 players
+
+            player_leaderboard.setPosition(sf::Vector2f(SCREEN_WIDTH / 2.f - 150.f, 200.f + (i * 80.f)));
+            player_leaderboard.setString(player + " Score: " + std::to_string(score));
+            window.draw(player_leaderboard);
+
+            i++;
+        }
 
         // Wait for Enter key to restart
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
             //entities.clear();
+     
+            // Test player
+            Player* new_player = new Player(current_session_id + 1, player_colors[current_session_id + 1], sf::Vector2f(500.f, 400.f), 30.f);
+            players[current_session_id + 1] = new_player; // Store in map
+            entities.push_back(new_player);
+
             std::cout << "Sending REQ_START_GAME" << std::endl;
             std::vector<char> conn_buffer = { REQ_START_GAME }; 
             sendData(conn_buffer);
@@ -862,19 +864,29 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 entities.push_back(new Asteroid());
                 asteroid_spawn_time = ASTEROID_SPAWN_TIME;
             }*/
+            // Draw scoreboard based on num of players
+            int i = 0;
+            for (auto& [sessionID, player] : players) {
+                std::string name;
+
+                if (playersNames.find(sessionID) != playersNames.end()) {
+                    name = playersNames[sessionID];
+                }
+                else {
+                    name = "Player " + std::to_string(sessionID);
+
+                }
+                player_score_text.setPosition(sf::Vector2f(40.f, 20.f + (i * 80.f)));
+                player_score_text.setString(name + "\nScore: " + std::to_string(player->score));
+                player_score_text.setFillColor(player->player_color);
+                window.draw(player_score_text);
+                i++;
+            }
+
         }
     }
  
 
-    // Draw scoreboard based on num of players
-    int i = 0;
-    for (auto& [sessionID, player] : players){
-        player_score_text.setPosition(sf::Vector2f(40.f, 20.f + (i * 80.f)));
-        player_score_text.setString("P" + std::to_string(i + 1) + "\nScore: " + std::to_string(player->score));
-        player_score_text.setFillColor(player->player_color);
-        window.draw(player_score_text);
-        i++;
-    }
 
     // Show timer on screen
     sf::Text timer_text;
@@ -945,6 +957,20 @@ void GameLogic::applyEntityUpdates() {
 void GameLogic::gameOver() {
     is_game_over = true;
 
+    for (auto& [sessionID, player] : players) {
+        std::string name;
+
+        if (playersNames.find(sessionID) != playersNames.end()) {
+            name = playersNames[sessionID];
+        }
+        else {
+            name = "Player " + std::to_string(sessionID);
+
+        }
+        std::cout << name << std::endl;
+        Global::addToLeaderboard(leaderboard, player->score, name);
+    }
+
 }
 
 // TO BE MOVED TO SERVER
@@ -953,39 +979,3 @@ Player* GameLogic::findPlayerBySession(uint8_t sessionID)
     auto it = players.find(sessionID);
     return (it != players.end()) ? it->second : nullptr;
 }
-
-//// TO BE MOVED TO SERVER
-//bool GameLogic::checkCollision(Entity* a, Entity* b) {
-//    // Compute the distance between the two entities
-//    float distance = sqrt(pow(a->position.x - b->position.x, 2) +
-//        pow(a->position.y - b->position.y, 2));
-//
-//    // Determine radius (approximate using bounding boxes)
-//    float a_radius = 0.f, b_radius = 0.f;
-//
-//    if (Asteroid* asteroid = dynamic_cast<Asteroid*>(a)) {
-//        a_radius = std::max(asteroid->shape.getLocalBounds().width,
-//            asteroid->shape.getLocalBounds().height) / 2.f;
-//    }
-//    else if (Player* player = dynamic_cast<Player*>(a)) {
-//        a_radius = 20.f; // Approximate player size (adjust based on your ship size)
-//    }
-//    else if (Bullet* bullet = dynamic_cast<Bullet*>(a)) {
-//        a_radius = 5.f;  // Small bullet size
-//    }
-//
-//    if (Asteroid* asteroid = dynamic_cast<Asteroid*>(b)) {
-//        b_radius = std::max(asteroid->shape.getLocalBounds().width,
-//            asteroid->shape.getLocalBounds().height) / 2.f;
-//    }
-//    else if (Player* player = dynamic_cast<Player*>(b)) {
-//        b_radius = 20.f; // Approximate player size
-//    }
-//    else if (Bullet* bullet = dynamic_cast<Bullet*>(b)) {
-//        b_radius = 5.f;  // Small bullet size
-//    }
-//
-//    // Collision check (distance must be smaller than sum of radii)
-//    return distance < (a_radius + b_radius);
-//}
-
