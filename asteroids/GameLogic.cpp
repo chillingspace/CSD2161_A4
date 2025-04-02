@@ -19,8 +19,8 @@
 std::string SERVER_IP;
 int SERVER_PORT;
 #else
-#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
-//#define SERVER_IP "192.168.0.23"
+//#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
+#define SERVER_IP "192.168.0.23"
 #define SERVER_PORT 3001
 #endif
 
@@ -802,9 +802,11 @@ void GameLogic::applyEntityUpdates() {
                 // Update existing player
                 Player* p = players[updatedPlayer.sid];
                 p->position = updatedPlayer.position;
-                p->angle = updatedPlayer.angle;
                 p->lives_left = updatedPlayer.lives_left;
                 p->score = updatedPlayer.score;
+
+                if (updatedPlayer.sid != current_session_id)
+                    p->angle = updatedPlayer.angle;
             }
         }
         // Remove existing bullets
