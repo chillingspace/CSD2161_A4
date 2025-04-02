@@ -599,18 +599,8 @@ void Server::requestHandler() {
 					return;
 				}
 
-				// pos x
-				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
-				spaceship->pos.x = btof(bytes);
-				idx += (int)sizeof(float);
-
-				// pos y
-				bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
-				spaceship->pos.y = btof(bytes);
-				idx += (int)sizeof(float);
-
 				// vector x
-				bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
+				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
 				spaceship->vector.x = btof(bytes);
 				idx += (int)sizeof(float);
 

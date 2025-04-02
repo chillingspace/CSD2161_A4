@@ -569,7 +569,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
     }
     else {
-        // TO BE MOVED TO SERVER
+
         {
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
                 std::vector<char> buffer;  // Start empty
@@ -586,21 +586,21 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 Player* player = players[current_session_id];
 
                 // Append position (x, y)
-                std::vector<char> bytes = Global::t_to_bytes(player->position.x);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+                //std::vector<char> bytes = Global::t_to_bytes(player->position.x);
+                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                bytes = Global::t_to_bytes(player->position.y);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+                //bytes = Global::t_to_bytes(player->position.y);
+                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append velocity (vector.x, vector.y)
-                bytes = Global::t_to_bytes(player->velocity.x);
+                std::vector<char> bytes = Global::t_to_bytes(player->velocity.x);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 bytes = Global::t_to_bytes(player->velocity.y);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append rotation
-                bytes = Global::t_to_bytes(player->angle - (TURN_SPEED ));
+                bytes = Global::t_to_bytes(player->angle -= (TURN_SPEED * delta_time));
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append number of bullets (set to 0 for now)
@@ -627,21 +627,21 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 Player* player = players[current_session_id];
 
                 // Append position (x, y)
-                std::vector<char> bytes = Global::t_to_bytes(player->position.x);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+                //std::vector<char> bytes = Global::t_to_bytes(player->position.x);
+                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                bytes = Global::t_to_bytes(player->position.y);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+                //bytes = Global::t_to_bytes(player->position.y);
+                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append velocity (vector.x, vector.y)
-                bytes = Global::t_to_bytes(player->velocity.x);
+                std::vector<char> bytes = Global::t_to_bytes(player->velocity.x);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 bytes = Global::t_to_bytes(player->velocity.y);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append rotation
-                bytes = Global::t_to_bytes(players[current_session_id]->angle + (TURN_SPEED ));
+                bytes = Global::t_to_bytes(players[current_session_id]->angle += (TURN_SPEED * delta_time));
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append number of bullets (set to 0 for now)
@@ -668,17 +668,62 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 Player* player = players[current_session_id];
 
                 // Append position (x, y)
-                std::vector<char> bytes = Global::t_to_bytes(player->position.x);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+                //std::vector<char> bytes = Global::t_to_bytes(player->position.x);
+                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                bytes = Global::t_to_bytes(player->position.y);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+                //bytes = Global::t_to_bytes(player->position.y);
+                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append velocity (vector.x, vector.y)
-                bytes = Global::t_to_bytes(players[current_session_id]->velocity.x + cos(radians) * ACCELERATION );
+                //bytes = Global::t_to_bytes(players[current_session_id]->velocity.x + cos(radians) * (ACCELERATION * delta_time));
+                std::vector<char> bytes = Global::t_to_bytes(players[current_session_id]->velocity.x += cos(radians) * (ACCELERATION * delta_time));
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                bytes = Global::t_to_bytes(players[current_session_id]->velocity.y + sin(radians) * ACCELERATION );
+                //bytes = Global::t_to_bytes(players[current_session_id]->velocity.y + sin(radians) * (ACCELERATION * delta_time));
+                bytes = Global::t_to_bytes(players[current_session_id]->velocity.y += sin(radians) * (ACCELERATION * delta_time));
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append rotation
+                bytes = Global::t_to_bytes(players[current_session_id]->angle);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append number of bullets (set to 0 for now)
+                bytes = Global::t_to_bytes(0);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Send the exact-sized buffer
+                sendData(buffer);
+            }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
+                float radians = players[current_session_id]->angle * (M_PI / 180.f);
+
+                std::vector<char> buffer;  // Start empty
+
+                buffer.push_back(SELF_SPACESHIP);  // Packet type
+                buffer.push_back(static_cast<char>(current_session_id));  // Session ID
+
+                // Ensure player exists
+                if (players.find(current_session_id) == players.end()) {
+                    std::cerr << "Error: Player not found!" << std::endl;
+                    return;
+                }
+
+                Player* player = players[current_session_id];
+
+                // Append position (x, y)
+                //std::vector<char> bytes = Global::t_to_bytes(player->position.x);
+                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                //bytes = Global::t_to_bytes(player->position.y);
+                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append velocity (vector.x, vector.y)
+                //bytes = Global::t_to_bytes(players[current_session_id]->velocity.x - cos(radians) * (ACCELERATION * delta_time));
+                std::vector<char> bytes = Global::t_to_bytes(players[current_session_id]->velocity.x -= cos(radians) * (ACCELERATION * delta_time));
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                //bytes = Global::t_to_bytes(players[current_session_id]->velocity.y - sin(radians) * (ACCELERATION * delta_time));
+                bytes = Global::t_to_bytes(players[current_session_id]->velocity.y -= sin(radians) * (ACCELERATION * delta_time));
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append rotation
