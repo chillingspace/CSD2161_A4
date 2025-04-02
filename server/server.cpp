@@ -213,7 +213,6 @@ SOCKET Server::createUdpSocket(int port, bool broadcast) {
 	}
 
 	// Cleanup
-	freeaddrinfo(udp_info);
 	return udpSocket;
 }
 
@@ -469,8 +468,11 @@ void Server::requestHandler() {
 						std::cout << "Connection accepted. Sent data to client. Client ACKed: " << sid << std::endl;
 					}
 					};
-				std::thread t(reliableSender);
-				t.detach();
+				//std::thread t(reliableSender);
+				{
+					std::lock_guard<std::mutex> tplock(threadpool_mutex);
+					threadpool.push_back(std::async(std::launch::async, reliableSender));
+				}
 				break;
 			}
 			case REQ_START_GAME: {
@@ -751,5 +753,29 @@ void Server::cleanup() {
 	{
 		std::lock_guard<std::mutex> udpInfoLock(udp_info_mutex);
 		freeaddrinfo(udp_info);
+	}
+}
+
+
+/* thread management */
+
+std::deque<std::future<void>> Server::threadpool;
+std::mutex Server::threadpool_mutex;
+
+void Server::threadpoolManager() {
+	while (Server::getInstance().udpListenerRunning) {
+		std::vector<std::future<void>> pool;
+		{
+			std::lock_guard<std::mutex> lock(threadpool_mutex);
+			pool.insert(pool.end(), std::make_move_iterator(threadpool.begin()), std::make_move_iterator(threadpool.end()));
+			threadpool.clear();
+		}
+
+
+		for (auto& fut : pool) {
+			fut.get();	// waits till thread has completed
+		}
+
+		// at this point, all threads have completed
 	}
 }
