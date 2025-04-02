@@ -71,7 +71,6 @@ vector y - 4 bytes
 ## ACK_SELF_SPACESHIP [SERVER RELIABLE]
 ```cpp
 cmd - 1 byte
-session id - 1 byte
 ```
 
 <details>
