@@ -259,7 +259,7 @@ void Game::updateGame() {
 				std::this_thread::sleep_for(std::chrono::milliseconds(Server::TIMEOUT_MS));
 
 				elapsed = std::chrono::high_resolution_clock::now() - start_bc_time;
-				if (elapsed.count() > Server::DISCONNECTION_TIMEOUT_DURATION_MS) {
+				if (elapsed.count() >= Server::DISCONNECTION_TIMEOUT_DURATION_MS / 1000.f) {
 					// disconnect clients that did not ack
 					{
 						std::lock_guard<std::mutex> stdoutLock(Server::getInstance()._stdoutMutex);
