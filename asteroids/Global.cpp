@@ -24,3 +24,27 @@ float Global::btof(const std::vector<char>& bytes) {
     std::memcpy(&num, &int_rep, sizeof(float));
     return num;
 }
+
+/* thread management */
+
+bool Global::threadpool_running = true;
+std::deque<std::future<void>> Global::threadpool;
+std::mutex Global::threadpool_mutex;
+
+void Global::threadpoolManager() {
+    while (threadpool_running) {
+        std::vector<std::future<void>> pool;
+        {
+            std::lock_guard<std::mutex> lock(threadpool_mutex);
+            pool.insert(pool.end(), std::make_move_iterator(threadpool.begin()), std::make_move_iterator(threadpool.end()));
+            threadpool.clear();
+        }
+
+
+        for (auto& fut : pool) {
+            fut.get(); // waits till thread has completed
+        }
+
+        // at this point, all threads have completed
+    }
+}
