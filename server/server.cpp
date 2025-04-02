@@ -605,8 +605,6 @@ void Server::requestHandler() {
 				//std::cout << "Received self spaceship." << std::endl;
 
 				std::vector<char> sbuf;
-				sbuf.push_back(ACK_SELF_SPACESHIP);
-				sendData(sbuf, senderAddr);
 
 				// locking for this entire block to prevent overwriting from gameUpdate
 				std::lock_guard<std::mutex> lock(Game::getInstance().data_mutex);
@@ -641,37 +639,65 @@ void Server::requestHandler() {
 				spaceship->rotation = btof(bytes);
 				idx += (int)sizeof(float);
 
-				// num new bullets fired
-				const int new_bullets = rbuf[idx++];
+				break;
+			}
+			case NEW_BULLET: {
+				// send ack first
+				std::vector<char> sbuf;
+				sbuf.push_back(ACK_NEW_BULLET);
+				sbuf.push_back(rbuf[2]);
+				sbuf.push_back(rbuf[3]);
+				sbuf.push_back(rbuf[4]);
+				sbuf.push_back(rbuf[5]);
+				sendData(sbuf, senderAddr);
 
-				for (int i{}; i < new_bullets; i++) {
-					Game::Bullet b;
+				int sid = rbuf[1];
+				int bid = rbuf[2] << 24 | rbuf[3] << 16 | rbuf[4] << 8 | rbuf[5];
+				int idx = 6;
 
-					b.sid = sid;
-
-					// pos x
-					bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
-					b.pos.x = btof(bytes);
-					idx += (int)sizeof(float);
-
-					// pos y
-					bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
-					b.pos.y = btof(bytes);
-					idx += (int)sizeof(float);
-
-					// vector x
-					bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
-					b.vector.x = btof(bytes);
-					idx += (int)sizeof(float);
-
-					// vector y
-					bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
-					b.vector.y = btof(bytes);
-					idx += (int)sizeof(float);
-
-					Game::getInstance().data.bullets.push_back(b);
+				{
+					std::lock_guard<std::mutex> dlock(Game::getInstance().data_mutex);
+					if (std::find_if(Game::getInstance().data.bullets.begin(), Game::getInstance().data.bullets.end(),
+						[bid](const Game::Bullet& b) {
+							return b.bullet_id == bid;
+						}
+					) != Game::getInstance().data.bullets.end()) {
+						// bullet has already been registered, ignore.
+						break;
+					}
 				}
 
+				{
+					std::lock_guard<std::mutex> coutlock(_stdoutMutex);
+					std::cout << "Registering new bullet " << bid << std::endl;
+				}
+
+				Game::Bullet nb{};
+
+				// pos x
+				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
+				nb.pos.x = btof(bytes);
+				idx += (int)sizeof(float);
+
+				// pos y
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
+				nb.pos.y = btof(bytes);
+				idx += (int)sizeof(float);
+
+				// vector x
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
+				nb.vector.x = btof(bytes);
+				idx += (int)sizeof(float);
+
+				// vector y
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
+				nb.vector.y = btof(bytes);
+				idx += (int)sizeof(float);
+
+				{
+					std::lock_guard<std::mutex> dlock(Game::getInstance().data_mutex);
+					Game::getInstance().data.bullets.push_back(nb);
+				}
 				break;
 			}
 			case KEEP_ALIVE: {

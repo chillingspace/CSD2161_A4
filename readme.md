@@ -60,25 +60,32 @@ session id - 1 byte
 vector x - 4 bytes [float]
 vector y - 4 bytes [float]
 rotation - 4 bytes [float]
+```
 
-num new bullets fired - 1 byte (gotta keep track, if server does not ack, store data and send again next frame)
 
-// first bullet
+## NEW_BULLET [CLIENT RELIABLE]
+```cpp
+cmd - 1 byte
+session id - 1 byte
+
+seq number - 4 bytes		// also used as bullet id
+
 pos x - 4 bytes
 pos y - 4 bytes
 vector x - 4 bytes
 vector y - 4 bytes
-
-// second, third bullet etc
 ```
+
+
 
 ~~num new asteroids destroyed - 1 byte (gotta keep track, if server does not ack, store data and send again next frame)~~
 
 ~~asteroid id - 4 bytes~~
 
-## ACK_SELF_SPACESHIP [SERVER RELIABLE]
+## ACK_NEW_BULLET [SERVER]
 ```cpp
 cmd - 1 byte
+seq number - 4 bytes
 ```
 
 <details>

@@ -11,6 +11,7 @@ int main()
     std::cout << "SFML Window Created Successfully!\n";
 
     GameLogic::init();
+    std::thread t(Global::threadpoolManager);
 
     // Main loop
     while (window.isOpen())
@@ -31,6 +32,7 @@ int main()
     }
 
     closeNetwork();
+    t.join();
 
     std::cout << "SFML Window Closed.\n";
     return 0;

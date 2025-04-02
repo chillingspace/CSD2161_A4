@@ -106,6 +106,7 @@ public:
 	};
 
 	struct Bullet : public Asteroid {
+		int bullet_id{};
 		SESSION_ID sid{};
 		float radius{ BULLET_RADIUS };
 	};

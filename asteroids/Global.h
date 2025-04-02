@@ -66,5 +66,5 @@ public:
     static std::deque<std::future<void>> threadpool;
     static std::mutex threadpool_mutex;
 
-    void threadpoolManager();
+    static void threadpoolManager();
 };

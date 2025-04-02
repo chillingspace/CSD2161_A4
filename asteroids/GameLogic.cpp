@@ -8,6 +8,7 @@
 #include <ws2tcpip.h>
 #include <thread>
 #include <chrono>
+#include <unordered_set>
 #pragma comment(lib, "ws2_32.lib")  // Link Winsock library
 
 #define LOCALHOST_DEV       // for developing on 1 machine
@@ -22,8 +23,8 @@ std::string playername;
 std::string SERVER_IP;
 int SERVER_PORT;
 #else
-#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
-//#define SERVER_IP "192.168.0.23"
+//#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
+#define SERVER_IP "192.168.0.23"
 #define SERVER_PORT 3001
 #endif
 
@@ -41,6 +42,10 @@ uint16_t udpBroadcastPort;
 
 bool isRunning = true;  // Used for network thread
 
+int seq{};      // for packets that require ack
+std::unordered_set<int> acked_seq;      // acked sequence numbers, once processed, will be popped
+std::mutex acked_seq_mutex;
+
 static constexpr int MAX_PACKET_SIZE = 1000;
 
 enum CLIENT_REQUESTS {
@@ -49,6 +54,7 @@ enum CLIENT_REQUESTS {
     REQ_START_GAME,
     ACK_START_GAME,
     SELF_SPACESHIP,
+    NEW_BULLET,
     ACK_END_GAME,
     KEEP_ALIVE
 };
@@ -57,9 +63,9 @@ enum SERVER_MSGS {
     CONN_ACCEPTED = 0,
     CONN_REJECTED,
     START_GAME,
-    ACK_SELF_SPACESHIP,
+    ACK_NEW_BULLET,
     ALL_ENTITIES,
-    END_GAME
+    END_GAME,
 };
 
 // Entities lists
@@ -129,12 +135,16 @@ void listenForUdpMessages() {
             }
 
             case ALL_ENTITIES:
-                std::cout << "Received ALL_ENTITIES update.\n";
+                //std::cout << "Received ALL_ENTITIES update.\n";
                 // Process entity updates (to be implemented)
                 break;
 
-            case ACK_SELF_SPACESHIP:
-                std::cout << "Received ACK_SELF_SPACESHIP.\n";
+            case ACK_NEW_BULLET:
+            {
+                std::lock_guard<std::mutex> aclock(acked_seq_mutex);
+                acked_seq.insert(buffer[1] << 24 | buffer[2] << 16 | buffer[3] << 8 | buffer[4]);
+            }
+                //std::cout << "Received ACK_SELF_SPACESHIP.\n";
                 
                 break;
 
@@ -330,7 +340,7 @@ void listenForBroadcast() {
                 }
 
 
-                case ACK_SELF_SPACESHIP:
+                case ACK_NEW_BULLET:
                     std::cout << "Received ACK_SELF_SPACESHIP.\n";
                     // Handle spaceship acknowledgment
                     break;
@@ -624,10 +634,12 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
     else {
 
         {
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
-                std::cout << "Rotating" << std::endl;
+            std::vector<char> buffer;  // Start empty
+            bool useReliableSender = false;
 
-                std::vector<char> buffer;  // Start empty
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+                //std::cout << "Rotating" << std::endl;
+
 
                 buffer.push_back(SELF_SPACESHIP);  // Packet type
                 buffer.push_back(static_cast<char>(current_session_id));  // Session ID
@@ -662,14 +674,10 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 bytes = Global::t_to_bytes(0);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                // Send the exact-sized buffer
                 sendData(buffer);
-
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
-                std::vector<char> buffer;  // Start empty
-
                 buffer.push_back(SELF_SPACESHIP);  // Packet type
                 buffer.push_back(static_cast<char>(current_session_id));  // Session ID
 
@@ -696,13 +704,11 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 bytes = Global::t_to_bytes(0);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                // Send the exact-sized buffer
                 sendData(buffer);
             }
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
-                float radians = players[current_session_id]->angle * (M_PI / 180.f);
 
-                std::vector<char> buffer;  // Start empty
+                float radians = players[current_session_id]->angle * (M_PI / 180.f);
 
                 buffer.push_back(SELF_SPACESHIP);  // Packet type
                 buffer.push_back(static_cast<char>(current_session_id));  // Session ID
@@ -739,13 +745,11 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 bytes = Global::t_to_bytes(0);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                // Send the exact-sized buffer
                 sendData(buffer);
             }
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
-                float radians = players[current_session_id]->angle * (M_PI / 180.f);
 
-                std::vector<char> buffer;  // Start empty
+                float radians = players[current_session_id]->angle * (M_PI / 180.f);
 
                 buffer.push_back(SELF_SPACESHIP);  // Packet type
                 buffer.push_back(static_cast<char>(current_session_id));  // Session ID
@@ -782,57 +786,86 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 bytes = Global::t_to_bytes(0);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                // Send the exact-sized buffer
                 sendData(buffer);
             }
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
-                float radians = players[current_session_id]->angle * (M_PI / 180.f);
+                static auto last_bullet_fired = std::chrono::high_resolution_clock::now();
+                auto now = std::chrono::high_resolution_clock::now();
 
-                std::vector<char> buffer;  // Start empty
+                if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_bullet_fired).count() >= SHOT_DELAY) {
 
-                buffer.push_back(SELF_SPACESHIP);  // Packet type
-                buffer.push_back(static_cast<char>(current_session_id));  // Session ID
+                    useReliableSender = true;
+                    last_bullet_fired = now;
 
-                // Ensure player exists
-                if (players.find(current_session_id) == players.end()) {
-                    std::cerr << "Error: Player not found!" << std::endl;
-                    return;
+                    float radians = players[current_session_id]->angle * (M_PI / 180.f);
+
+                    buffer.push_back(NEW_BULLET);  // Packet type
+                    buffer.push_back(static_cast<char>(current_session_id));  // Session ID
+
+                    // sequence number (4 bytes)
+                    buffer.push_back((seq >> 24) & 0xff);
+                    buffer.push_back((seq >> 16) & 0xff);
+                    buffer.push_back((seq >> 8) & 0xff);
+                    buffer.push_back((seq >> 0) & 0xff);
+                    ++seq;
+
+                    // Ensure player exists
+                    if (players.find(current_session_id) == players.end()) {
+                        std::cerr << "Error: Player not found!" << std::endl;
+                        return;
+                    }
+
+                    Player* player = players[current_session_id];
+
+                    // **Calculate bullet properties**
+                    float bulletSpeed = 5.0f;
+
+                    // Bullet position (starts at spaceship position)
+                    std::vector<char> bytes = Global::t_to_bytes(player->position.x);
+                    buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                    bytes = Global::t_to_bytes(player->position.y);
+                    buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                    // Bullet velocity (shoots in the direction of rotation)
+                    bytes = Global::t_to_bytes(cos(radians) * bulletSpeed);
+                    buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                    bytes = Global::t_to_bytes(sin(radians) * bulletSpeed);
+                    buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+                }
+            }
+
+            auto reliableSender = [buffer]() {
+                int retries = 5;
+
+                int seq_num = buffer[2] << 24 | buffer[3] << 16 | buffer[4] << 8 | buffer[5];
+
+                while (--retries >= 0) {
+                    // Send the exact-sized buffer
+                    sendData(buffer);
+
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+                    {
+                        std::lock_guard < std::mutex> aslock(acked_seq_mutex);
+                        if (acked_seq.find(seq_num) != acked_seq.end()) {
+                            // has been acked
+                            acked_seq.erase(seq_num);
+                            return;
+                        }
+                    }
+
+                    // have not been acked
                 }
 
-                Player* player = players[current_session_id];
+                std::cerr << "Server did not send ACK_SELF_SPACESHIP for 5 seconds!" << std::endl;
+                };
 
-                // Append velocity (vector.x, vector.y)
-                std::vector<char> bytes = Global::t_to_bytes(player->velocity.x);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-
-                bytes = Global::t_to_bytes(player->velocity.y);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-
-                // Append rotation
-                bytes = Global::t_to_bytes(players[current_session_id]->angle);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-
-                // **Send 1 bullet instead of 0**
-                buffer.push_back(1);  // 1 bullet
-
-                // **Calculate bullet properties**
-                float bulletSpeed = 5.0f;
-
-                // Bullet position (starts at spaceship position)
-                bytes = Global::t_to_bytes(player->position.x);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-
-                bytes = Global::t_to_bytes(player->position.y);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-
-                // Bullet velocity (shoots in the direction of rotation)
-                bytes = Global::t_to_bytes(cos(radians) * bulletSpeed);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-
-                bytes = Global::t_to_bytes(sin(radians) * bulletSpeed);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-
-                sendData(buffer);
+            if (useReliableSender) {
+                std::lock_guard<std::mutex> tplock(Global::threadpool_mutex);
+                Global::threadpool.push_back(std::async(std::launch::async, reliableSender));
             }
 
             /*asteroid_spawn_time -= delta_time;*/
