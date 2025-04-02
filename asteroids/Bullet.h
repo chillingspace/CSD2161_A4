@@ -5,7 +5,7 @@
 
 // PLAYER VARIABLES
 constexpr float BULLET_SPEED = 750.f;
-constexpr float BULLET_LIFETIME = 2.f;
+constexpr float BULLET_LIFETIME = 2.f;      // shldnt be used
 
 
 class Bullet : public Entity {

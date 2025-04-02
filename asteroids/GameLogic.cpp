@@ -670,9 +670,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 bytes = Global::t_to_bytes(player->angle -= (TURN_SPEED * delta_time));
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                // Append number of bullets (set to 0 for now)
-                bytes = Global::t_to_bytes(0);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
 
                 sendData(buffer);
             }
@@ -700,9 +698,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 bytes = Global::t_to_bytes(players[current_session_id]->angle += (TURN_SPEED * delta_time));
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                // Append number of bullets (set to 0 for now)
-                bytes = Global::t_to_bytes(0);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
 
                 sendData(buffer);
             }
@@ -741,9 +737,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 bytes = Global::t_to_bytes(players[current_session_id]->angle);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                // Append number of bullets (set to 0 for now)
-                bytes = Global::t_to_bytes(0);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
 
                 sendData(buffer);
             }
@@ -782,9 +776,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 bytes = Global::t_to_bytes(players[current_session_id]->angle);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                // Append number of bullets (set to 0 for now)
-                bytes = Global::t_to_bytes(0);
-                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
 
                 sendData(buffer);
             }
@@ -818,7 +810,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                     Player* player = players[current_session_id];
 
                     // **Calculate bullet properties**
-                    float bulletSpeed = 5.0f;
+                    //static constexpr float bulletSpeed = 500.0f;
 
                     // Bullet position (starts at spaceship position)
                     std::vector<char> bytes = Global::t_to_bytes(player->position.x);
@@ -828,10 +820,10 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                     buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                     // Bullet velocity (shoots in the direction of rotation)
-                    bytes = Global::t_to_bytes(cos(radians) * bulletSpeed);
+                    bytes = Global::t_to_bytes(cos(radians) * BULLET_SPEED);
                     buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                    bytes = Global::t_to_bytes(sin(radians) * bulletSpeed);
+                    bytes = Global::t_to_bytes(sin(radians) * BULLET_SPEED);
                     buffer.insert(buffer.end(), bytes.begin(), bytes.end());
                 }
             }
