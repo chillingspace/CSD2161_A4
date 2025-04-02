@@ -78,6 +78,21 @@ void Game::updateGame() {
 			// update spaceships
 			for (Spaceship& s : data.spaceships) {
 				s.pos += s.vector * dt;
+
+				// wrap spaceship positions
+				if (s.pos.x < -WINDOW_WIDTH) {
+					s.pos.x = WINDOW_WIDTH;
+				}
+				else if (s.pos.x > WINDOW_WIDTH) {
+					s.pos.x = -WINDOW_WIDTH;
+				}
+
+				if (s.pos.y < -WINDOW_HEIGHT) {
+					s.pos.y = WINDOW_HEIGHT;
+				}
+				else if (s.pos.y > WINDOW_HEIGHT) {
+					s.pos.y = -WINDOW_HEIGHT;
+				}
 			}
 
 			// update bullets

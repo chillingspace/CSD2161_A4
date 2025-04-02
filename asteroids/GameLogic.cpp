@@ -574,6 +574,8 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
         {
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+                std::cout << "Rotating" << std::endl;
+
                 std::vector<char> buffer;  // Start empty
 
                 buffer.push_back(SELF_SPACESHIP);  // Packet type
