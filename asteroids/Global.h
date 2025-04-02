@@ -6,6 +6,9 @@
 #include <winsock2.h> // For ntohl (Windows)
 #include <type_traits>
 #include <string>
+#include <deque>
+#include <future>
+#include <mutex>
 
 // GLOBAL CONSTANTS
 constexpr float M_PI = 3.14159265358979323846f;
@@ -55,4 +58,13 @@ public:
     }
 
     static float btof(const std::vector<char>& bytes);
+
+    /* thread management */
+
+    static bool threadpool_running;
+
+    static std::deque<std::future<void>> threadpool;
+    static std::mutex threadpool_mutex;
+
+    void threadpoolManager();
 };

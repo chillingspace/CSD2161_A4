@@ -30,6 +30,8 @@ int main()
         window.display();
     }
 
+    closeNetwork();
+
     std::cout << "SFML Window Closed.\n";
     return 0;
 }

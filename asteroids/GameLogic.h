@@ -36,3 +36,6 @@ class GameLogic
 		static void gameOver();
 };
 
+void closeNetwork();
+
+

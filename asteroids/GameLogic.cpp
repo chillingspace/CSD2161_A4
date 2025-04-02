@@ -143,7 +143,7 @@ void listenForUdpMessages() {
         Sleep(1);  // Prevent high CPU usage
     }
 
-    closesocket(udpSocket);
+    //closesocket(udpSocket);
 }
 
 // Handles every thing that all players need to know
@@ -184,7 +184,7 @@ void listenForBroadcast() {
 
     std::cout << "Listening for UDP broadcasts on port " << serverBroadcastAddr.sin_port << "..." << std::endl;
 
-    while (true) {
+    while (isRunning) {
         char buffer[1024];
         sockaddr_in senderAddr;
         int senderAddrSize = sizeof(senderAddr);
@@ -321,8 +321,8 @@ void listenForBroadcast() {
         }
     }
 
-    closesocket(udpBroadcastSocket);
-    WSACleanup();
+    //closesocket(udpBroadcastSocket);
+    //WSACleanup();
 }
 
 
