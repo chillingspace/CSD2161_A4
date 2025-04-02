@@ -398,6 +398,9 @@ std::vector<char> Game::Data::toBytes() {
 
 		bytes = Server::t_to_bytes(a.pos.y);
 		buf.insert(buf.end(), bytes.begin(), bytes.end());	// pos y (4 bytes)
+
+		bytes = Server::t_to_bytes(a.radius);
+		buf.insert(buf.end(), bytes.begin(), bytes.end());	// asteroid radius (4 bytes)
 	}
 
 	return buf;
