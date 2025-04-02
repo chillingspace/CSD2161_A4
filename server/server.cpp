@@ -482,15 +482,15 @@ void Server::requestHandler() {
 				Game::getInstance().data.reset();
 				Game::getInstance().gameRunning = true;
 
-				int num_conns{};
+				int num_conns;
 				{
 					std::lock_guard<std::mutex> lock(Game::getInstance().data_mutex);
 					num_conns = (int)Game::getInstance().data.spaceships.size();
 				}
 
-				auto bc = [this, &buf, &num_conns]() {  
+				auto bc = [this, &buf, num_conns]() {  
 
-					int num_acks{};
+					int num_acks = 0;
 
 					auto start = std::chrono::high_resolution_clock::now();
 
@@ -526,15 +526,20 @@ void Server::requestHandler() {
 						}
 
 
+						// Check the number of acks
 						{
 							std::lock_guard<std::mutex> acklock(ack_start_game_clients_mutex);
 							num_acks = (int)ack_start_game_clients.size();
-							std::cout << "num of acks" << num_acks << "num of conss" << num_conns << std::endl;
-							if (num_acks >= num_conns) break;  // Exit if all clients acknowledged
 						}
 
-						broadcastData(buf);
+						std::cout << "Current num_acks: " << num_acks << " / num_conns: " << num_conns << std::endl;
+						if (num_acks >= num_conns) {
+							std::cout << "EXITING LOOP" << std::endl;
+							break;
+						}
 
+						// Continue broadcasting to request acks
+						broadcastData(buf);
 						std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT_MS));
 
 					}
@@ -544,7 +549,7 @@ void Server::requestHandler() {
 						std::lock_guard<std::mutex> req_start_game_ack_lock(ack_start_game_clients_mutex);
 						ack_start_game_clients.clear();
 					}
-					};
+				};
 
 				// broadcast game start through reliable udp communication
 				bc();
@@ -565,8 +570,18 @@ void Server::requestHandler() {
 					[&sid](const Game::Spaceship& s) { return s.sid == sid; }
 				);
 
-				// vector x
+				// pos x
 				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				spaceship->pos.x = btof(bytes);
+				idx += (int)sizeof(float);
+
+				// pos y
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				spaceship->pos.y = btof(bytes);
+				idx += (int)sizeof(float);
+
+				// vector x
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
 				spaceship->vector.x = btof(bytes);
 				idx += (int)sizeof(float);
 
@@ -611,11 +626,6 @@ void Server::requestHandler() {
 					Game::getInstance().data.bullets.push_back(b);
 				}
 
-				std::vector<char> sendBuffer;
-				sendBuffer.push_back(ACK_SELF_SPACESHIP);
-				sendBuffer.push_back(sid);
-				
-				sendData(sendBuffer, senderAddr);
 			}
 			}
 		}

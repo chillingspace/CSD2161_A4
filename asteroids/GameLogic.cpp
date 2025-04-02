@@ -428,12 +428,9 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
             //entities.clear();
 
-            char cmd = REQ_START_GAME;
-            int sendResult = sendto(udpSocket, &cmd, sizeof(cmd), 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
-            if (sendResult == SOCKET_ERROR) {
-                std::cerr << "Failed to send connection request. Error: " << WSAGetLastError() << "\n";
-                return;
-            }
+            std::vector<char> conn_buffer = { REQ_START_GAME }; 
+            sendData(conn_buffer);
+
         }
 
 
