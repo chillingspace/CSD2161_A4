@@ -59,7 +59,7 @@ public:
 
 	static Server& getInstance();
 
-	static constexpr int TICK_RATE = 20;
+	static constexpr int TICK_RATE = 120;
 
 	static constexpr int MAX_PACKET_SIZE = 1000;
 

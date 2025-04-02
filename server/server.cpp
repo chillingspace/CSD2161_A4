@@ -577,6 +577,10 @@ void Server::requestHandler() {
 			case SELF_SPACESHIP: {
 				std::cout << "Received self spaceship." << std::endl;
 
+				std::vector<char> sbuf;
+				sbuf.push_back(ACK_SELF_SPACESHIP);
+				sendData(sbuf, senderAddr);
+
 				// locking for this entire block to prevent overwriting from gameUpdate
 				std::lock_guard<std::mutex> lock(Game::getInstance().data_mutex);
 
@@ -595,18 +599,8 @@ void Server::requestHandler() {
 					return;
 				}
 
-				// pos x
-				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
-				spaceship->pos.x = btof(bytes);
-				idx += (int)sizeof(float);
-
-				// pos y
-				bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
-				spaceship->pos.y = btof(bytes);
-				idx += (int)sizeof(float);
-
 				// vector x
-				bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
+				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
 				spaceship->vector.x = btof(bytes);
 				idx += (int)sizeof(float);
 
