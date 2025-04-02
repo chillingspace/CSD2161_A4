@@ -30,11 +30,21 @@ Asteroid::Asteroid() : Entity(sf::Vector2f(0, 0), 0.f) {
 
 }
 
+// Asteroid copy constructor
+Asteroid::Asteroid(const Asteroid& asteroid)
+    : Entity(asteroid),           // Copy the base class (Entity) data
+    shape(asteroid.shape),       // Copy the shape (for rendering)
+    velocity(asteroid.velocity), // Copy the velocity
+    size(asteroid.size)          // Copy the size
+{
+}
+
+
 // TO BE MOVED TO SERVER
 void Asteroid::update(float delta_time) {
-    angle += ASTEROID_SPIN * delta_time;
-    position += ASTEROID_SPEED * velocity * delta_time;
-    wrapAround(position, size);
+    //angle += ASTEROID_SPIN * delta_time;
+    //position += ASTEROID_SPEED * velocity * delta_time;
+    //wrapAround(position, size);
 
 }
 

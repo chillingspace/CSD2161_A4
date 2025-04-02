@@ -31,6 +31,8 @@ class Player : public Entity {
         // Player constructor
         Player();
 
+        Player(const Player& player);
+
         Player(uint8_t uid, sf::Color player_color, sf::Vector2f pos, float rot);
 
         // Update player

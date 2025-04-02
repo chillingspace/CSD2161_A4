@@ -17,8 +17,8 @@ class GameLogic
 
 		// Handle list of entities
 		static std::vector<Entity*> entities;
-		static std::list<Entity*> entitiesToDelete;
-		static std::list<Entity*> entitiesToAdd;
+		//static std::list<Entity*> entitiesToDelete;
+		//static std::list<Entity*> entitiesToAdd;
 		static std::unordered_map<uint8_t, Player*> players;
 		
 		static float game_timer;
@@ -26,6 +26,8 @@ class GameLogic
 		static bool is_game_over;
 
 		static int score;
+		
+		static void applyEntityUpdates();
 
 		static Player* findPlayerBySession(uint8_t sessionID);
 

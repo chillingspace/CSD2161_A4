@@ -20,6 +20,8 @@ public:
 
     Bullet();
 
+    Bullet(const Bullet& bullet);
+
     Bullet(sf::Vector2f pos, sf::Vector2f dir, Player* owner, uint8_t sid);
 
     void update(float delta_time) override;

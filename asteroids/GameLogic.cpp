@@ -12,7 +12,7 @@
 
 #define LOCALHOST_DEV       // for developing on 1 machine
 
-//#define JS_DEBUG
+#define JS_DEBUG
 
 #ifndef JS_DEBUG
 
@@ -71,9 +71,13 @@ struct PlayerMovementPacket {
 
 // Entities lists
 std::vector<Entity*> GameLogic::entities{};
-std::list<Entity*> GameLogic::entitiesToDelete{};
-std::list<Entity*> GameLogic::entitiesToAdd{};
+//std::list<Entity*> GameLogic::entitiesToDelete{};
+//std::list<Entity*> GameLogic::entitiesToAdd{};
 std::unordered_map<uint8_t, Player*> GameLogic::players{};
+// Store the most recent entity updates in a global variable
+std::vector<Player> updatedPlayers;
+std::vector<Bullet> updatedBullets;
+std::vector<Asteroid> updatedAsteroids;
 
 // Game conditions
 float GameLogic::game_timer;
@@ -227,7 +231,7 @@ void listenForBroadcast() {
 
                     int offset = 1;  // Skip packet type
                     int num_spaceships = buffer[offset++];
-                    std::vector<Player> players;
+                    updatedPlayers.clear();
 
                     // Read Player Data (15 bytes per spaceship)
                     for (int i = 0; i < num_spaceships; i++) {
@@ -237,27 +241,29 @@ void listenForBroadcast() {
                         }
 
                         Player s;
-                        memcpy(&s.sid, &buffer[offset++], 1);
+                        s.sid = buffer[offset++];
                         s.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                         offset += 4;
                         s.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                         offset += 4;
                         s.angle = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                         offset += 4;
-                        memcpy(&s.lives_left, &buffer[offset++], 1);
-                        memcpy(&s.score, &buffer[offset++], 2);
+                        s.lives_left = buffer[offset++];  // 1 byte for lives_left (no need for memcpy)
+                        s.score = buffer[offset++];  // 1 byte for score (no need for memcpy)
+                        s.player_color = player_colors[s.sid];
 
-                        players.push_back(s);
+                        updatedPlayers.push_back(s);
 
                         std::cout << "Spaceship SID: " << static_cast<int>(s.sid)
                             << " | Pos: (" << s.position.x << ", " << s.position.y << ")"
+                            << " | Angle : " << s.angle
                             << " | Lives: " << (int)s.lives_left
-                            << " | Score: " << s.score << "\n";
+                            << " | Score: " << (int)s.score << "\n";
                     }
 
                     int num_bullets = buffer[offset++];
-                    std::vector<Bullet> bullets;
 
+                    updatedBullets.clear();
                     // Read Bullet Data (9 bytes per bullet)
                     for (int i = 0; i < num_bullets; i++) {
                         if (offset + 9 > bytesReceived) {
@@ -266,20 +272,19 @@ void listenForBroadcast() {
                         }
 
                         Bullet b;
-                        memcpy(&b.sid, &buffer[offset++], 4);
+                        b.sid = buffer[offset++];  
                         b.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                         offset += 4;
                         b.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                         offset += 4;
 
-                        bullets.push_back(b);
+                        updatedBullets.push_back(b);
 
                         std::cout << "Bullet Owner SID: " << b.sid
                             << " | Pos: (" << b.position.x << ", " << b.position.y << ")\n";
                     }
 
                     int num_asteroids = buffer[offset++];
-                    std::vector<Asteroid> asteroids;
 
                     // Read Asteroid Data (8 bytes per asteroid)
                     for (int i = 0; i < num_asteroids; i++) {
@@ -294,13 +299,10 @@ void listenForBroadcast() {
                         offset += sizeof(float);
                         a.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                         offset += sizeof(float);
-                        a.size = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
-                        offset += sizeof(float);
 
-                        asteroids.push_back(a);
+                        updatedAsteroids.push_back(a);
 
-                        std::cout << "Asteroid Pos: (" << a.position.x << ", " << a.position.y << ")"
-                            << " | Radius: " << a.size << "\n";
+                        std::cout << "Asteroid Pos: (" << a.position.x << ", " << a.position.y << ")" << "\n";
                     }
 
 
@@ -445,7 +447,7 @@ bool initNetwork() {
 
                 Player* new_player = new Player(sessionID, player_colors[sessionID], sf::Vector2f(spawnPosX, spawnPosY), spawnRotation);
                 GameLogic::players[sessionID] = new_player; // Store in map
-                GameLogic::entitiesToAdd.push_back(new_player);
+                GameLogic::entities.push_back(new_player);
 
                 // Send ACK_CONN_REQUEST
                 conn_buffer.clear();
@@ -564,9 +566,6 @@ void GameLogic::start() {
 
     // TO BE MOVED TO SERVER (COLOR DOES ISNT REQUIRED)
     {
-
-
-        entitiesToAdd.push_back(new Asteroid());
         game_timer = 60.f; // Game lasts for 60 seconds (adjust as needed)
     }
 }
@@ -606,32 +605,46 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
     else {
         // TO BE MOVED TO SERVER
         {
-            asteroid_spawn_time -= delta_time;
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+                //angle -= TURN_SPEED * delta_time;
 
-            for (auto& entity : entitiesToAdd) {
-                entities.push_back(entity);
             }
-            entitiesToAdd.clear();
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
+                //angle += TURN_SPEED * delta_time;
+            }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
+                //float radians = angle * (M_PI / 180.f);
+                //velocity.x += cos(radians) * ACCELERATION * delta_time;
+                //velocity.y += sin(radians) * ACCELERATION * delta_time;
+            }
+
+            /*asteroid_spawn_time -= delta_time;*/
+            applyEntityUpdates();
+
+            //for (auto& entity : entitiesToAdd) {
+            //    entities.push_back(entity);
+            //}
+            //entitiesToAdd.clear();
 
             for (size_t i = 0; i < entities.size(); i++) {
                 entities[i]->update(delta_time);
                 entities[i]->render(window);
             }
 
-            for (auto* entity : entitiesToDelete) {
-                auto it = std::find(entities.begin(), entities.end(), entity);
-                if (it != entities.end()) {
-                    delete* it;       // Delete the object
-                    entities.erase(it); // Remove from the list
-                }
-            }
-            entitiesToDelete.clear();
+            //for (auto* entity : entitiesToDelete) {
+            //    auto it = std::find(entities.begin(), entities.end(), entity);
+            //    if (it != entities.end()) {
+            //        delete* it;       // Delete the object
+            //        entities.erase(it); // Remove from the list
+            //    }
+            //}
+            //entitiesToDelete.clear();
 
-            if (asteroid_spawn_time <= 0.f && entities.size() <= 12) {
+           /* if (asteroid_spawn_time <= 0.f && entities.size() <= 12) {
                 entities.push_back(new Asteroid());
                 entities.push_back(new Asteroid());
                 asteroid_spawn_time = ASTEROID_SPAWN_TIME;
-            }
+            }*/
         }
     }
  
@@ -660,6 +673,45 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
   
 
 }
+void GameLogic::applyEntityUpdates() {
+    // Update players
+    for (const auto& updatedPlayer : updatedPlayers) {
+        if (players.count(updatedPlayer.sid)) {
+            // Update existing player
+            Player* p = players[updatedPlayer.sid];
+            p->position = updatedPlayer.position;
+            p->angle = updatedPlayer.angle;
+            p->lives_left = updatedPlayer.lives_left;
+            p->score = updatedPlayer.score;
+        }
+        else {
+
+        }
+    }
+
+    // Update bullets
+    for (const auto& updatedBullet : updatedBullets) {
+        Bullet* newBullet = new Bullet(updatedBullet);
+        entities.push_back(newBullet);
+    }
+
+    // Update asteroids
+    for (const auto& updatedAsteroid : updatedAsteroids) {
+        Asteroid* newAsteroid = new Asteroid(updatedAsteroid);
+        entities.push_back(newAsteroid);
+    }
+
+    // Clear update buffers
+    updatedPlayers.clear();
+    updatedBullets.clear();
+    updatedAsteroids.clear();
+}
+
+
+void GameLogic::gameOver() {
+    is_game_over = true;
+
+}
 
 // TO BE MOVED TO SERVER
 Player* GameLogic::findPlayerBySession(uint8_t sessionID)
@@ -668,42 +720,38 @@ Player* GameLogic::findPlayerBySession(uint8_t sessionID)
     return (it != players.end()) ? it->second : nullptr;
 }
 
-// TO BE MOVED TO SERVER
-bool GameLogic::checkCollision(Entity* a, Entity* b) {
-    // Compute the distance between the two entities
-    float distance = sqrt(pow(a->position.x - b->position.x, 2) +
-        pow(a->position.y - b->position.y, 2));
+//// TO BE MOVED TO SERVER
+//bool GameLogic::checkCollision(Entity* a, Entity* b) {
+//    // Compute the distance between the two entities
+//    float distance = sqrt(pow(a->position.x - b->position.x, 2) +
+//        pow(a->position.y - b->position.y, 2));
+//
+//    // Determine radius (approximate using bounding boxes)
+//    float a_radius = 0.f, b_radius = 0.f;
+//
+//    if (Asteroid* asteroid = dynamic_cast<Asteroid*>(a)) {
+//        a_radius = std::max(asteroid->shape.getLocalBounds().width,
+//            asteroid->shape.getLocalBounds().height) / 2.f;
+//    }
+//    else if (Player* player = dynamic_cast<Player*>(a)) {
+//        a_radius = 20.f; // Approximate player size (adjust based on your ship size)
+//    }
+//    else if (Bullet* bullet = dynamic_cast<Bullet*>(a)) {
+//        a_radius = 5.f;  // Small bullet size
+//    }
+//
+//    if (Asteroid* asteroid = dynamic_cast<Asteroid*>(b)) {
+//        b_radius = std::max(asteroid->shape.getLocalBounds().width,
+//            asteroid->shape.getLocalBounds().height) / 2.f;
+//    }
+//    else if (Player* player = dynamic_cast<Player*>(b)) {
+//        b_radius = 20.f; // Approximate player size
+//    }
+//    else if (Bullet* bullet = dynamic_cast<Bullet*>(b)) {
+//        b_radius = 5.f;  // Small bullet size
+//    }
+//
+//    // Collision check (distance must be smaller than sum of radii)
+//    return distance < (a_radius + b_radius);
+//}
 
-    // Determine radius (approximate using bounding boxes)
-    float a_radius = 0.f, b_radius = 0.f;
-
-    if (Asteroid* asteroid = dynamic_cast<Asteroid*>(a)) {
-        a_radius = std::max(asteroid->shape.getLocalBounds().width,
-            asteroid->shape.getLocalBounds().height) / 2.f;
-    }
-    else if (Player* player = dynamic_cast<Player*>(a)) {
-        a_radius = 20.f; // Approximate player size (adjust based on your ship size)
-    }
-    else if (Bullet* bullet = dynamic_cast<Bullet*>(a)) {
-        a_radius = 5.f;  // Small bullet size
-    }
-
-    if (Asteroid* asteroid = dynamic_cast<Asteroid*>(b)) {
-        b_radius = std::max(asteroid->shape.getLocalBounds().width,
-            asteroid->shape.getLocalBounds().height) / 2.f;
-    }
-    else if (Player* player = dynamic_cast<Player*>(b)) {
-        b_radius = 20.f; // Approximate player size
-    }
-    else if (Bullet* bullet = dynamic_cast<Bullet*>(b)) {
-        b_radius = 5.f;  // Small bullet size
-    }
-
-    // Collision check (distance must be smaller than sum of radii)
-    return distance < (a_radius + b_radius);
-}
-
-void GameLogic::gameOver() {
-    is_game_over = true;
-
-}

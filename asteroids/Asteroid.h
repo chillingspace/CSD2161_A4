@@ -19,7 +19,8 @@ class Asteroid : public Entity {
 
         // Asteroid constructor
         Asteroid();
-
+        
+        Asteroid(const Asteroid& asteroid);
 
         // Update Asteroid
         void update(float delta_time) override;

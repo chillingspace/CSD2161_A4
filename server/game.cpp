@@ -401,7 +401,7 @@ void Game::Data::reset() {
 	last_updated = std::chrono::high_resolution_clock::now();
 
 	for (Spaceship& s : spaceships) {
-		s.pos = { 1.1f, 2.2f };
+		s.pos = { 500.f, 500.f };
 		s.vector = { 0,0 };
 		s.rotation = 3.3f;
 		s.lives_left = Game::NUM_START_LIVES;
