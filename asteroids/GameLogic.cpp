@@ -32,6 +32,7 @@ sockaddr_in serverAddr;
 SOCKET udpBroadcastSocket = -1;
 sockaddr_in serverBroadcastAddr;
 
+uint8_t current_session_id;
 uint16_t udpBroadcastPort; 
 
 bool isRunning = true;  // Used for network thread
@@ -43,9 +44,7 @@ enum CLIENT_REQUESTS {
     ACK_CONN_REQUEST,
     REQ_START_GAME,
     ACK_START_GAME,
-    ACK_ACK_SELF_SPACESHIP,
     SELF_SPACESHIP,
-    ACK_ALL_ENTITIES,
     ACK_END_GAME
 };
 
@@ -57,18 +56,6 @@ enum SERVER_MSGS {
     ALL_ENTITIES,
     END_GAME
 };
-
-#pragma pack(push, 1) // Ensure no padding in struct
-struct PlayerMovementPacket {
-    uint8_t cmd;
-    uint8_t sessionID;
-    float posX;
-    float posY;
-    float vecX;
-    float vecY;
-    float rotation;
-};
-#pragma pack(pop)
 
 // Entities lists
 std::vector<Entity*> GameLogic::entities{};
@@ -88,12 +75,10 @@ bool GameLogic::is_game_over;
 // Asteroids conditions
 float GameLogic::asteroid_spawn_time;
 
-
 // Font and text
 sf::Font font;
 sf::Text game_over_text;
 sf::Text player_score_text;
-
 
 // Colors of the player
 std::vector<sf::Color> player_colors = {
@@ -102,7 +87,6 @@ std::vector<sf::Color> player_colors = {
     sf::Color::Green,
     sf::Color::Yellow
 };
-
 
 // Send player input
 void sendData(const std::vector<char>& buffer) {
@@ -281,9 +265,9 @@ void listenForBroadcast() {
                         offset += 4;
 
                         updatedBullets.push_back(b);
-
-                        std::cout << "Bullet Owner SID: " << b.sid
-                            << " | Pos: (" << b.position.x << ", " << b.position.y << ")\n";
+                        updatedEntities = true;
+                        //std::cout << "Bullet Owner SID: " << b.sid
+                        //    << " | Pos: (" << b.position.x << ", " << b.position.y << ")\n";
                     }
 
                     int num_asteroids = buffer[offset++];
@@ -306,7 +290,7 @@ void listenForBroadcast() {
 
                         updatedAsteroids.push_back(a);
                         updatedEntities = true;
-                        std::cout << "Asteroid Pos: (" << a.position.x << ", " << a.position.y << ")" << "\n";
+                        //std::cout << "Asteroid Pos: (" << a.position.x << ", " << a.position.y << ")" << "\n";
                     }
 
 
@@ -421,7 +405,7 @@ bool initNetwork() {
                 int offset = 1; // Start after the command byte
 
                 // Session ID (1 byte)
-                uint8_t sessionID = buffer[offset++];
+                current_session_id = buffer[offset++];
 
                 // Read UDP Broadcast Port (2 bytes, ensure correct endian conversion)
                 memcpy(&udpBroadcastPort, buffer + offset, sizeof(uint16_t));
@@ -443,14 +427,14 @@ bool initNetwork() {
                 spawnRotation = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                 offset += sizeof(float);
 
-                std::cout << "Session ID: " << (int)sessionID << std::endl;
+                std::cout << "Session ID: " << (int)current_session_id << std::endl;
                 std::cout << "UDP Broadcast Port: " << udpBroadcastPort << std::endl;
                 std::cout << "Spawn X: " << spawnPosX << std::endl;
                 std::cout << "Spawn Y: " << spawnPosY << std::endl;
                 std::cout << "Spawn Rotation: " << spawnRotation << " degrees" << std::endl;
 
-                Player* new_player = new Player(sessionID, player_colors[sessionID], sf::Vector2f(spawnPosX, spawnPosY), spawnRotation);
-                GameLogic::players[sessionID] = new_player; // Store in map
+                Player* new_player = new Player(current_session_id, player_colors[current_session_id], sf::Vector2f(spawnPosX, spawnPosY), spawnRotation);
+                GameLogic::players[current_session_id] = new_player; // Store in map
                 GameLogic::entities.push_back(new_player);
 
                 // Send ACK_CONN_REQUEST
@@ -517,26 +501,6 @@ void closeNetwork() {
     std::cout << "Network closed.\n";
 }
 
-//
-//void receivePlayerMovement(char* buffer, int size) {
-//    if (size < sizeof(PlayerMovementPacket)) return;
-//
-//    PlayerMovementPacket* packet = (PlayerMovementPacket*)buffer;
-//
-//    // Find the player with this session ID
-//    Player* player = findPlayerBySessionID(packet->sessionID);
-//    if (player) {
-//        player->position.x = packet->posX;
-//        player->position.y = packet->posY;
-//        player->velocity.x = packet->vecX;
-//        player->velocity.y = packet->vecY;
-//        player->rotation = packet->rotation;
-//    }
-//}
-
-
-
-
 void GameLogic::init() {
     bool success = initNetwork();
     if (!success) {
@@ -589,8 +553,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
     
     // Test commands
 
-    //if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num4)) sendPlayerInput('D');
-
     if (is_game_over) {
         game_over_text.setString("Press Enter to Start a New Match");
         window.draw(game_over_text);
@@ -610,16 +572,125 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
         // TO BE MOVED TO SERVER
         {
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
-                //angle -= TURN_SPEED * delta_time;
+                std::vector<char> buffer;  // Start empty
+
+                buffer.push_back(SELF_SPACESHIP);  // Packet type
+                buffer.push_back(static_cast<char>(current_session_id));  // Session ID
+
+                // Ensure player exists
+                if (players.find(current_session_id) == players.end()) {
+                    std::cerr << "Error: Player not found!" << std::endl;
+                    return;
+                }
+
+                Player* player = players[current_session_id];
+
+                // Append position (x, y)
+                std::vector<char> bytes = Global::t_to_bytes(player->position.x);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                bytes = Global::t_to_bytes(player->position.y);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append velocity (vector.x, vector.y)
+                bytes = Global::t_to_bytes(player->velocity.x);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                bytes = Global::t_to_bytes(player->velocity.y);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append rotation
+                bytes = Global::t_to_bytes(player->angle - (TURN_SPEED ));
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append number of bullets (set to 0 for now)
+                bytes = Global::t_to_bytes(0);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Send the exact-sized buffer
+                sendData(buffer);
 
             }
+
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
-                //angle += TURN_SPEED * delta_time;
+                std::vector<char> buffer;  // Start empty
+
+                buffer.push_back(SELF_SPACESHIP);  // Packet type
+                buffer.push_back(static_cast<char>(current_session_id));  // Session ID
+
+                // Ensure player exists
+                if (players.find(current_session_id) == players.end()) {
+                    std::cerr << "Error: Player not found!" << std::endl;
+                    return;
+                }
+
+                Player* player = players[current_session_id];
+
+                // Append position (x, y)
+                std::vector<char> bytes = Global::t_to_bytes(player->position.x);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                bytes = Global::t_to_bytes(player->position.y);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append velocity (vector.x, vector.y)
+                bytes = Global::t_to_bytes(player->velocity.x);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                bytes = Global::t_to_bytes(player->velocity.y);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append rotation
+                bytes = Global::t_to_bytes(players[current_session_id]->angle + (TURN_SPEED ));
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append number of bullets (set to 0 for now)
+                bytes = Global::t_to_bytes(0);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Send the exact-sized buffer
+                sendData(buffer);
             }
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
-                //float radians = angle * (M_PI / 180.f);
-                //velocity.x += cos(radians) * ACCELERATION * delta_time;
-                //velocity.y += sin(radians) * ACCELERATION * delta_time;
+                float radians = players[current_session_id]->angle * (M_PI / 180.f);
+
+                std::vector<char> buffer;  // Start empty
+
+                buffer.push_back(SELF_SPACESHIP);  // Packet type
+                buffer.push_back(static_cast<char>(current_session_id));  // Session ID
+
+                // Ensure player exists
+                if (players.find(current_session_id) == players.end()) {
+                    std::cerr << "Error: Player not found!" << std::endl;
+                    return;
+                }
+
+                Player* player = players[current_session_id];
+
+                // Append position (x, y)
+                std::vector<char> bytes = Global::t_to_bytes(player->position.x);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                bytes = Global::t_to_bytes(player->position.y);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append velocity (vector.x, vector.y)
+                bytes = Global::t_to_bytes(players[current_session_id]->velocity.x + cos(radians) * ACCELERATION );
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                bytes = Global::t_to_bytes(players[current_session_id]->velocity.y + sin(radians) * ACCELERATION );
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append rotation
+                bytes = Global::t_to_bytes(players[current_session_id]->angle);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append number of bullets (set to 0 for now)
+                bytes = Global::t_to_bytes(0);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Send the exact-sized buffer
+                sendData(buffer);
             }
 
             /*asteroid_spawn_time -= delta_time;*/

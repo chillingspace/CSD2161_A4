@@ -339,7 +339,6 @@ void Server::requestHandler() {
 		//static std::vector<char> sbuf(MAX_PACKET_SIZE);
 		//if (sbuf.size() != MAX_PACKET_SIZE)
 		//	sbuf.resize(MAX_PACKET_SIZE);
-		static std::vector<char> sbuf(16);
 
 		// handle data
 		for (const auto [senderAddr, rbuf] : recvbuffer) {
@@ -348,6 +347,8 @@ void Server::requestHandler() {
 			switch (cmd) {
 			case CONN_REQUEST: {
 				std::cout << "Connection Requested By Client" << std::endl;
+				static std::vector<char> sbuf(16);
+
 				int num_players{};
 				{
 					std::lock_guard<std::mutex> spaceshipsdatalock(Game::getInstance().data_mutex);
@@ -489,7 +490,7 @@ void Server::requestHandler() {
 				std::cout << "Received start game request." << std::endl;
 
 				if (Game::getInstance().gameRunning) {
-					return;
+					break;
 				}
 
 				std::vector<char> buf(16);
@@ -574,6 +575,8 @@ void Server::requestHandler() {
 				break;
 			}
 			case SELF_SPACESHIP: {
+				std::cout << "Received self spaceship." << std::endl;
+
 				// locking for this entire block to prevent overwriting from gameUpdate
 				std::lock_guard<std::mutex> lock(Game::getInstance().data_mutex);
 
@@ -587,28 +590,33 @@ void Server::requestHandler() {
 					[&sid](const Game::Spaceship& s) { return s.sid == sid; }
 				);
 
+				if (spaceship == Game::getInstance().data.spaceships.end()) {
+					
+					return;
+				}
+
 				// pos x
-				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
 				spaceship->pos.x = btof(bytes);
 				idx += (int)sizeof(float);
 
 				// pos y
-				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
 				spaceship->pos.y = btof(bytes);
 				idx += (int)sizeof(float);
 
 				// vector x
-				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
 				spaceship->vector.x = btof(bytes);
 				idx += (int)sizeof(float);
 
 				// vector y
-				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
 				spaceship->vector.y = btof(bytes);
 				idx += (int)sizeof(float);
 
 				// rotation
-				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
 				spaceship->rotation = btof(bytes);
 				idx += (int)sizeof(float);
 
@@ -621,22 +629,22 @@ void Server::requestHandler() {
 					b.sid = sid;
 
 					// pos x
-					bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+					bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
 					b.pos.x = btof(bytes);
 					idx += (int)sizeof(float);
 
 					// pos y
-					bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+					bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
 					b.pos.y = btof(bytes);
 					idx += (int)sizeof(float);
 
 					// vector x
-					bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+					bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
 					b.vector.x = btof(bytes);
 					idx += (int)sizeof(float);
 
 					// vector y
-					bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+					bytes.assign(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
 					b.vector.y = btof(bytes);
 					idx += (int)sizeof(float);
 
