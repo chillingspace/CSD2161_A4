@@ -22,8 +22,8 @@ Bullet::Bullet(sf::Vector2f pos, sf::Vector2f dir, Player* owner, uint8_t sid) :
 // TO BE MOVED TO SERVER
 void Bullet::update(float delta_time)
 {
-    lifetime -= delta_time;
-    position += direction * BULLET_SPEED * delta_time;
+    //lifetime -= delta_time;
+    //position += direction * BULLET_SPEED * delta_time;
 
     //// Check for collision with each asteroid
     //for (Entity* entity : GameLogic::entities) {

@@ -19,8 +19,8 @@
 std::string SERVER_IP;
 int SERVER_PORT;
 #else
-//#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
-#define SERVER_IP "192.168.0.23"
+#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
+//#define SERVER_IP "192.168.0.23"
 #define SERVER_PORT 3001
 #endif
 
@@ -114,7 +114,7 @@ void listenForUdpMessages() {
 
         if (bytesReceived > 0) {
             uint8_t cmd = buffer[0]; // First byte is the command identifier
-
+            std::vector<char> send_buffer;
             switch (cmd) {
             case ALL_ENTITIES:
                 std::cout << "Received ALL_ENTITIES update.\n";
@@ -123,12 +123,15 @@ void listenForUdpMessages() {
 
             case ACK_SELF_SPACESHIP:
                 std::cout << "Received ACK_SELF_SPACESHIP.\n";
-                // Handle spaceship acknowledgment
+                
                 break;
 
             case END_GAME:
                 std::cout << "Received END_GAME signal.\n";
                 GameLogic::gameOver();
+
+                send_buffer = { ACK_END_GAME };
+                sendData(send_buffer);
                 break;
 
             default:
@@ -630,13 +633,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
                 Player* player = players[current_session_id];
 
-                // Append position (x, y)
-                //std::vector<char> bytes = Global::t_to_bytes(player->position.x);
-                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-
-                //bytes = Global::t_to_bytes(player->position.y);
-                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-
                 // Append velocity (vector.x, vector.y)
                 std::vector<char> bytes = Global::t_to_bytes(player->velocity.x);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
@@ -739,6 +735,55 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Send the exact-sized buffer
+                sendData(buffer);
+            }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+                float radians = players[current_session_id]->angle * (M_PI / 180.f);
+
+                std::vector<char> buffer;  // Start empty
+
+                buffer.push_back(SELF_SPACESHIP);  // Packet type
+                buffer.push_back(static_cast<char>(current_session_id));  // Session ID
+
+                // Ensure player exists
+                if (players.find(current_session_id) == players.end()) {
+                    std::cerr << "Error: Player not found!" << std::endl;
+                    return;
+                }
+
+                Player* player = players[current_session_id];
+
+                // Append velocity (vector.x, vector.y)
+                std::vector<char> bytes = Global::t_to_bytes(player->velocity.x);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                bytes = Global::t_to_bytes(player->velocity.y);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Append rotation
+                bytes = Global::t_to_bytes(players[current_session_id]->angle);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // **Send 1 bullet instead of 0**
+                buffer.push_back(1);  // 1 bullet
+
+                // **Calculate bullet properties**
+                float bulletSpeed = 5.0f;
+
+                // Bullet position (starts at spaceship position)
+                bytes = Global::t_to_bytes(player->position.x);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                bytes = Global::t_to_bytes(player->position.y);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                // Bullet velocity (shoots in the direction of rotation)
+                bytes = Global::t_to_bytes(cos(radians) * bulletSpeed);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                bytes = Global::t_to_bytes(sin(radians) * bulletSpeed);
+                buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
                 sendData(buffer);
             }
 

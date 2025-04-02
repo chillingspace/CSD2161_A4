@@ -10,12 +10,11 @@ Asteroid::Asteroid() : Entity(sf::Vector2f(0, 0), 0.f) {
     // Adjusting the shape points based on the size
     shape.setPointCount(8); // 8-sided asteroid
 
-    // Randomize radius for each point based on the size
+
     for (int i = 0; i < 8; i++) {
         float angle = (i / 8.f) * 360.f;
-        float randomRadius = Global::randomFloat(radius * 0.8f, radius); // Random radius per vertex based on size
         float rad = angle * (M_PI / 180.f);
-        shape.setPoint(i, sf::Vector2f(cos(rad) * randomRadius, sin(rad) * randomRadius));
+        shape.setPoint(i, sf::Vector2f(cos(rad) * radius, sin(rad) * radius)); // Use randomRadius to set the point
     }
 
     shape.setFillColor(sf::Color::Transparent); // Make it look like an outline
@@ -35,14 +34,15 @@ Asteroid::Asteroid(const Asteroid& asteroid)
 
 // TO BE MOVED TO SERVER
 void Asteroid::update(float delta_time) {
-    //angle += ASTEROID_SPIN * delta_time;
+    angle += ASTEROID_SPIN * delta_time;
     //position += ASTEROID_SPEED * velocity * delta_time;
     //wrapAround(position, size);
 
 }
 
 void Asteroid::render(sf::RenderWindow& window)
-{
+{    
+
     window.draw(shape, sf::Transform().translate(position).rotate(angle));
     //drawWithWraparound(window, shape, position, angle);
 }
@@ -53,9 +53,8 @@ void Asteroid::setRadius(float newRadius) {
     // Adjust the shape to reflect the new size
     for (int i = 0; i < 8; i++) {
         float angle = (i / 8.f) * 360.f;
-        float randomRadius = Global::randomFloat(radius * 0.8f, radius); // Random radius per vertex based on the asteroid's size
         float rad = angle * (M_PI / 180.f);
-        shape.setPoint(i, sf::Vector2f(cos(rad) * randomRadius, sin(rad) * randomRadius)); // Use randomRadius to set the point
+        shape.setPoint(i, sf::Vector2f(cos(rad) * radius, sin(rad) * radius)); // Use randomRadius to set the point
     }
 }
 
