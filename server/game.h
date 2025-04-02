@@ -31,13 +31,13 @@ public:
 
 	static constexpr int NUM_START_LIVES = 3;
 	static constexpr float BULLET_RADIUS = 2.f;
-	static constexpr float SPACESHIP_RADIUS = 5.f;
+	static constexpr float SPACESHIP_RADIUS = 20.f;
 	
 	static constexpr int GAME_DURATION_S = 60;
 	static constexpr int ASTEROID_SPAWN_INTERVAL_MS = 1000;
 
-	static constexpr int MIN_ASTEROID_RADIUS = 5;
-	static constexpr int MAX_ASTEROID_RADIUS = 20;
+	static constexpr int MIN_ASTEROID_RADIUS = 20;
+	static constexpr int MAX_ASTEROID_RADIUS = 50;
 	static constexpr float ASTEROID_SPEED = 80.f;
 	static constexpr int MAX_ASTEROIDS = 20;
 
@@ -114,6 +114,7 @@ public:
 		float rotation{};
 		int lives_left{};
 		int score{};
+		std::string name{};
 	};
 
 	class Data {

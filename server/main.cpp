@@ -35,6 +35,7 @@ int main()
 		}
 	);
 	std::thread reqHandlerThread([&s]() {s.requestHandler(); });
+	std::thread keepAliveCheckingThread([&s]() {s.keepAliveChecker(); });
 	std::thread threadpoolManagerThread(Server::threadpoolManager);
 
 	auto quitServerListener = []() {
@@ -54,6 +55,7 @@ int main()
 	recvthread.join();
 	gameUpdateThread.join();
 	reqHandlerThread.join();
+	keepAliveCheckingThread.join();
 	threadpoolManagerThread.join();
 
 	s.cleanup();

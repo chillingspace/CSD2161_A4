@@ -96,8 +96,17 @@ void Game::updateGame() {
 			}
 
 			// update bullets
-			for (Bullet& b : data.bullets) {
+			for (auto it = data.bullets.begin(); it != data.bullets.end();) {
+				Bullet& b = *it;
+
+				// remove bullets out of screen
+				if (b.pos.x > WINDOW_WIDTH || b.pos.x < -WINDOW_WIDTH || b.pos.y > WINDOW_HEIGHT || b.pos.y < -WINDOW_HEIGHT) {
+					it = data.bullets.erase(it);
+					continue;
+				}
+
 				b.pos += b.vector * dt;
+				++it;
 			}
 
 			// update asteroids
@@ -251,11 +260,27 @@ void Game::updateGame() {
 
 		if (elapsed.count() > GAME_DURATION_S) {
 			gameRunning = false;
+			{
+				std::lock_guard<std::mutex> lock(data_mutex);
+				data.reset();
+			}
+			{
+				std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
+				std::cout << "Time is up, ending game.." << std::endl;
+			}
 		}
 
 		// check if all spaceships are dead(out of lives)
 		if (num_dead_spaceships == num_spaceships) {
 			gameRunning = false;
+			{
+				std::lock_guard<std::mutex> lock(data_mutex);
+				data.reset();
+			}
+			{
+				std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
+				std::cout << "All players are dead or disconnected, ending game.." << std::endl;
+			}
 		}
 	}
 
@@ -273,6 +298,11 @@ void Game::updateGame() {
 				}
 				}
 			);
+		}
+
+		// get all time highest scores from file
+		{
+
 		}
 
 		std::vector<char> ebuf;

@@ -12,6 +12,9 @@
 
 #define LOCALHOST_DEV       // for developing on 1 machine
 
+
+std::string playername;
+
 #define JS_DEBUG
 
 #ifndef JS_DEBUG
@@ -26,6 +29,7 @@ int SERVER_PORT;
 
 std::thread recvUdpThread;
 std::thread recvBroadcastThread;
+std::thread keepAliveThread;
 
 SOCKET udpSocket;
 sockaddr_in serverAddr;
@@ -45,7 +49,8 @@ enum CLIENT_REQUESTS {
     REQ_START_GAME,
     ACK_START_GAME,
     SELF_SPACESHIP,
-    ACK_END_GAME
+    ACK_END_GAME,
+    KEEP_ALIVE
 };
 
 enum SERVER_MSGS {
@@ -116,6 +121,13 @@ void listenForUdpMessages() {
             uint8_t cmd = buffer[0]; // First byte is the command identifier
             std::vector<char> send_buffer;
             switch (cmd) {
+            case CONN_ACCEPTED:
+            {
+                std::vector<char> buf{ ACK_CONN_REQUEST };
+                sendData(buf);
+                break;
+            }
+
             case ALL_ENTITIES:
                 std::cout << "Received ALL_ENTITIES update.\n";
                 // Process entity updates (to be implemented)
@@ -200,15 +212,30 @@ void listenForBroadcast() {
 
             switch (cmd) {
                 case START_GAME:
-                    
+                {
+
                     if (GameLogic::is_game_over) {
                         GameLogic::start();
                         std::cout << "starting" << std::endl;
                     }
 
+                    // !TODO: sean pls populate ur thing
+                    std::unordered_map<int, std::string> placeholder_sid_playername_map;
+
+                    int offset = 2;
+                    for (int i{}; i < buffer[1]; i++) {     // iterate through num players
+                        int sid = buffer[offset++];
+                        int playernamesize = buffer[offset++];
+                        for (int j{}; j < playernamesize; j++) {    // iterate through num chars in player name
+                            placeholder_sid_playername_map[sid] += buffer[offset+j];
+                        }
+                        offset += playernamesize;
+                    }
+
                     // Example: Send ACK_START_GAME back to sender
                     send_buffer = { ACK_START_GAME };
                     sendData(send_buffer);
+                }
                 break;
                 case ALL_ENTITIES: {
                     std::cout << "Received ALL_ENTITIES update (" << bytesReceived << " bytes).\n";
@@ -340,6 +367,9 @@ bool initNetwork() {
     std::cout << "Enter Server Port: ";
     std::getline(std::cin, portInput);
 
+    std::cout << "Name: ";
+    std::getline(std::cin, playername);
+
     try {
         SERVER_PORT = std::stoi(portInput);
     }
@@ -347,6 +377,8 @@ bool initNetwork() {
         std::cerr << "Invalid port number. Using default port 1111.\n";
         SERVER_PORT = 1111;
     }
+#else
+    playername = "GWEE BOON XUEN SEAN";
 #endif
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -377,6 +409,8 @@ bool initNetwork() {
     
     // Send connection request
     std::vector<char> conn_buffer = { CONN_REQUEST };
+    conn_buffer.push_back((char)playername.size());
+    conn_buffer.insert(conn_buffer.end(), playername.begin(), playername.end());
     sendData(conn_buffer);
     std::cout << "Sent connection request to server. Waiting for response...\n";
 
@@ -484,6 +518,16 @@ bool initNetwork() {
 void startNetworkThread() {
     recvUdpThread = std::thread(listenForUdpMessages);
     recvBroadcastThread = std::thread(listenForBroadcast);
+    keepAliveThread = std::thread([]() {
+        std::vector<char> buf;
+        buf.push_back(KEEP_ALIVE);
+        buf.push_back(current_session_id);
+        while (isRunning) {
+            sendData(buf);
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+        }
+        }
+    );
     std::cout << "Started network threads.\n";
 }
 
@@ -498,6 +542,10 @@ void closeNetwork() {
 
     if (recvBroadcastThread.joinable()) {
         recvBroadcastThread.join();
+    }
+
+    if (keepAliveThread.joinable()) {
+        keepAliveThread.join();
     }
 
     closesocket(udpSocket);
