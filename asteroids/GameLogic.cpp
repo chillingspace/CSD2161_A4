@@ -237,17 +237,19 @@ void listenForBroadcast() {
                         }
 
                         Player s;
-                        memcpy(&s.sid, &buffer[offset++], 4);
+                        memcpy(&s.sid, &buffer[offset++], 1);
                         s.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                         offset += 4;
                         s.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+                        offset += 4;
+                        s.angle = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                         offset += 4;
                         memcpy(&s.lives_left, &buffer[offset++], 1);
                         memcpy(&s.score, &buffer[offset++], 2);
 
                         players.push_back(s);
 
-                        std::cout << "Spaceship SID: " << s.sid
+                        std::cout << "Spaceship SID: " << static_cast<int>(s.sid)
                             << " | Pos: (" << s.position.x << ", " << s.position.y << ")"
                             << " | Lives: " << (int)s.lives_left
                             << " | Score: " << s.score << "\n";

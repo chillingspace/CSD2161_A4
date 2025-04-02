@@ -208,6 +208,10 @@ void Game::updateGame() {
 		sbuf.push_back(Server::ALL_ENTITIES);
 		sbuf.insert(sbuf.end(), dbytes.begin(), dbytes.end());
 
+#ifdef JS_DEBUG
+		std::vector<unsigned char> v(sbuf.begin(), sbuf.end());
+#endif
+
 
 		// broadcast data
 		Server::getInstance().broadcastData(sbuf);
@@ -397,9 +401,9 @@ void Game::Data::reset() {
 	last_updated = std::chrono::high_resolution_clock::now();
 
 	for (Spaceship& s : spaceships) {
-		s.pos = { 0, 0 };
+		s.pos = { 1.1f, 2.2f };
 		s.vector = { 0,0 };
-		s.rotation = 0.f;
+		s.rotation = 3.3f;
 		s.lives_left = Game::NUM_START_LIVES;
 		s.score = 0;
 	}
