@@ -1,7 +1,10 @@
 #include "Bullet.h"
 #include "GameLogic.h"
 #include "Player.h"
-Bullet::Bullet(sf::Vector2f pos, sf::Vector2f dir, Player* owner) : shape(1.f), direction(dir), Entity(pos, 0.f), lifetime(BULLET_LIFETIME), owner(owner) {
+
+Bullet::Bullet() : Entity(sf::Vector2f(0.f, 0.f), 0) {};
+
+Bullet::Bullet(sf::Vector2f pos, sf::Vector2f dir, Player* owner, uint8_t sid) : shape(1.f), direction(dir), Entity(pos, 0.f), lifetime(BULLET_LIFETIME), owner(owner), sid(sid) {
     shape.setFillColor(owner->player_color);
 }
 

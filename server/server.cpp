@@ -130,12 +130,12 @@ int Server::broadcastData(const std::vector<char>& buffer) {
 		std::cerr << "sendto() failed with wsa error: " << wsaError << std::endl;
 	}
 	{
-		/*std::lock_guard<std::mutex> soutlock(_stdoutMutex);
+		std::lock_guard<std::mutex> soutlock(_stdoutMutex);
 		std::cout << "Sending packet: ";
 		for (int i = 0; i < buffer.size(); ++i) {
 			std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(uint8_t)buffer[i] << " ";
 		}
-		std::cout << std::dec << std::endl;*/
+		std::cout << std::dec << std::endl;
 	}
 	return bytesSent;
 }
@@ -538,9 +538,7 @@ void Server::requestHandler() {
 							num_acks = (int)ack_start_game_clients.size();
 						}
 
-						std::cout << "Current num_acks: " << num_acks << " / num_conns: " << num_conns << std::endl;
 						if (num_acks >= num_conns) {
-							std::cout << "Starting Game" << std::endl;
 							Game::getInstance().data.reset();
 							Game::getInstance().gameRunning = true;
 							break;

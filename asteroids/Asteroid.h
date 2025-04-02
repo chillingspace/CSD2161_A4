@@ -11,10 +11,11 @@ class Asteroid : public Entity {
     private:
 
         sf::Vector2f velocity;
-        float size;
+
 
     public:
         sf::ConvexShape shape;
+        float size;
 
         // Asteroid constructor
         Asteroid();

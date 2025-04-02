@@ -20,15 +20,18 @@ class Player : public Entity {
         float shot_timer;
 
     public:
-        uint8_t uid;
+        uint8_t sid;
         int score;
         bool is_alive;
+        int lives_left;
         float death_timer;
         float invulnerability_timer;
         sf::Color player_color;
 
         // Player constructor
-        Player(int uid, sf::Color player_color, sf::Vector2f pos, float rot);
+        Player();
+
+        Player(uint8_t uid, sf::Color player_color, sf::Vector2f pos, float rot);
 
         // Update player
         void update(float delta_time) override;

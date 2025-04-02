@@ -14,9 +14,13 @@ private:
     sf::Vector2f direction;
     float lifetime;
 public:
+    uint8_t sid;
+
     Player* owner;
 
-    Bullet(sf::Vector2f pos, sf::Vector2f dir, Player* owner);
+    Bullet();
+
+    Bullet(sf::Vector2f pos, sf::Vector2f dir, Player* owner, uint8_t sid);
 
     void update(float delta_time) override;
 

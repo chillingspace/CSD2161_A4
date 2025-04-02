@@ -185,9 +185,11 @@ void Game::updateGame() {
 		// data update is done, send to clients
 
 		// prepare payload
-		static std::vector<char> sbuf(Server::MAX_PACKET_SIZE);
+		std::vector<char> sbuf;
+		sbuf.reserve(1 + dbytes.size()); // Avoids reallocations
 		sbuf.push_back(Server::ALL_ENTITIES);
 		sbuf.insert(sbuf.end(), dbytes.begin(), dbytes.end());
+
 
 		// broadcast data
 		Server::getInstance().broadcastData(sbuf);

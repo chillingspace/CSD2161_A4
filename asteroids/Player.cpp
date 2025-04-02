@@ -3,11 +3,13 @@
 #include "Global.h"
 #include "GameLogic.h"
 
-Player::Player(int uid, sf::Color player_color, sf::Vector2f pos, float rot) : Entity(pos, rot), vertices(sf::Triangles, 3), uid(uid), score(0), is_alive(true), death_timer(0.f), invulnerability_timer(0.f), shot_timer(), player_color(player_color), velocity(sf::Vector2f(0.f,0.f)) {
+Player::Player() : Entity(sf::Vector2f(0.f,0.f), 0) {}
+
+Player::Player(uint8_t sid, sf::Color player_color, sf::Vector2f pos, float rot) : Entity(pos, rot), vertices(sf::Triangles, 3), sid(sid), score(0), is_alive(true), death_timer(0.f), invulnerability_timer(0.f), shot_timer(), player_color(player_color), velocity(sf::Vector2f(0.f,0.f)) {
     vertices[0].position = sf::Vector2f(20, 0);   // Tip of the ship
     vertices[1].position = sf::Vector2f(-20, -15); // Bottom left
     vertices[2].position = sf::Vector2f(-20, 15);  // Bottom right
-
+    lives_left = 3;
     for (size_t i = 0; i < vertices.getVertexCount(); i++) {
         vertices[i].color = player_color;
     }
@@ -72,7 +74,7 @@ void Player::update(float delta_time)
         float radians = angle * (M_PI / 180.f);
 
 
-        GameLogic::entitiesToAdd.push_back(new Bullet(position, sf::Vector2f(cos(radians), sin(radians)), this));
+        GameLogic::entitiesToAdd.push_back(new Bullet(position, sf::Vector2f(cos(radians), sin(radians)), this, this->sid));
     }
     // Check for collision with each asteroid
     for (Entity* entity : GameLogic::entities) {
