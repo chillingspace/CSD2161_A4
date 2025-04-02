@@ -18,6 +18,10 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 #include <stdexcept>
 #include <random>
 
+#ifndef VERBOSE_LOGGING
+#define VERBOSE_LOGGING
+#endif
+
 Game& Game::getInstance() {
 	static Game game;
 	return game;
@@ -87,6 +91,13 @@ void Game::updateGame() {
 			}
 
 			if ((int)data.asteroids.size() < MAX_ASTEROIDS && (curr - last_asteroid_spawn_time).count() > ASTEROID_SPAWN_INTERVAL_MS / 1000) {
+#ifdef VERBOSE_LOGGING
+				{
+					std::lock_guard<std::mutex> coutlock(Server::getInstance()._stdoutMutex);
+					std::cout << "Spawning new asteroid" << std::endl;
+				}
+#endif
+
 				// spawn asteroid
 				last_asteroid_spawn_time = curr;
 
@@ -160,6 +171,13 @@ void Game::updateGame() {
 						continue;
 					}
 
+#ifdef VERBOSE_LOGGING
+					{
+						std::lock_guard<std::mutex> coutlock(Server::getInstance()._stdoutMutex);
+						std::cout << "Spaceship " << s_it->sid << " lost 1 life" << std::endl;
+					}
+#endif
+
 					data.killSpaceship(s_it);
 					hasAsteroidCollided = true;
 					break;
@@ -197,7 +215,7 @@ void Game::updateGame() {
 		// check elapsed time
 		elapsed = std::chrono::high_resolution_clock::now() - start;
 
-		if (elapsed.count() > GAME_DURATION_S * 1000) {
+		if (elapsed.count() > GAME_DURATION_S) {
 			gameRunning = false;
 		}
 
@@ -367,10 +385,10 @@ std::vector<char> Game::Data::toBytes() {
 }
 
 bool Game::circleCollision(Circle c1, Circle c2) {
-	const float rsq = powf(max(c1.radius, c2.radius), 2.f);
-	const float lsq = (c2.pos - c1.pos).lengthSq();
+	const float rsq = powf(c1.radius + c2.radius, 2.f);
+	const float dsq = (c2.pos - c1.pos).lengthSq();
 
-	return lsq >= rsq;
+	return dsq <= rsq;
 }
 
 void Game::Data::reset() {

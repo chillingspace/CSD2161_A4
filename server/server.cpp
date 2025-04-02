@@ -21,7 +21,7 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 #include "server.h"
 #include "game.h"
 
-#define VERBOSE_LOGGING
+//#define VERBOSE_LOGGING
 #define JS_DEBUG
 #define LOCALHOST_DEV
 
@@ -121,7 +121,7 @@ int Server::broadcastData(const std::vector<char>& buffer) {
 
 	int bytesSent = sendto(udp_socket_broadcast, buffer.data(), (int)buffer.size(), 0, reinterpret_cast<sockaddr*>(&udp_addr_in), sizeof(sockaddr_in));
 	if (bytesSent == SOCKET_ERROR) {
-		//std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
+		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
 		char errorBuffer[256];
 		strerror_s(errorBuffer, sizeof(errorBuffer), errno);
 		std::cerr << "sendto() failed: " << errorBuffer << std::endl;
@@ -129,6 +129,7 @@ int Server::broadcastData(const std::vector<char>& buffer) {
 		int wsaError = WSAGetLastError();
 		std::cerr << "sendto() failed with wsa error: " << wsaError << std::endl;
 	}
+#ifdef VERBOSE_LOGGING
 	{
 		std::lock_guard<std::mutex> soutlock(_stdoutMutex);
 		std::cout << "Sending packet: ";
@@ -137,6 +138,7 @@ int Server::broadcastData(const std::vector<char>& buffer) {
 		}
 		std::cout << std::dec << std::endl;
 	}
+#endif
 	return bytesSent;
 }
 
@@ -405,13 +407,24 @@ void Server::requestHandler() {
 				//sbuf[buf_idx++] = Game::NUM_START_LIVES;
 
 				auto reliableSender = [&]() {
-					std::chrono::duration<float> elapsed{};
+					float elapsedMs{};
 					auto start = std::chrono::high_resolution_clock::now();
 					char senderIP[INET_ADDRSTRLEN];
 					inet_ntop(AF_INET, &(senderAddr.sin_addr), senderIP, INET_ADDRSTRLEN);
-					std::cout << "Received data from " << senderIP << ":" << ntohs(senderAddr.sin_port) << std::endl;
+#ifdef VERBOSE_LOGGING
+					{
+						std::lock_guard<std::mutex> coutlock(_stdoutMutex);
+						std::cout << "Received data from " << senderIP << ":" << ntohs(senderAddr.sin_port) << std::endl;
+					}
+#endif
 
 					while (true) {
+						// Send data
+						int bytesSent = sendData(sbuf, senderAddr);
+						if (bytesSent < 0) {
+							std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
+							std::cerr << "sendData() failed: " << "\n";
+						}
 #ifdef VERBOSE_LOGGING
 						{
 							// Debug: Print packet contents before sending
@@ -422,11 +435,6 @@ void Server::requestHandler() {
 							}
 							ss << std::dec << "\n";
 
-							// Send data
-							int bytesSent = sendData(sbuf, senderAddr);
-							if (bytesSent < 0) {
-								ss << "sendData() failed: " << "\n";
-							}
 							else {
 								ss << "Sent " << bytesSent << " bytes to " << senderIP << ":" << ntohs(senderAddr.sin_port) << "\n";
 							}
@@ -449,13 +457,14 @@ void Server::requestHandler() {
 						}
 						std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT_MS));
 
-						elapsed = std::chrono::high_resolution_clock::now() - start;
-						if (elapsed.count() >= DISCONNECTION_TIMEOUT_DURATION_MS / 1000.f) {
+						elapsedMs = static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
+						if (elapsedMs >= DISCONNECTION_TIMEOUT_DURATION_MS) {
 							// disconnect client
 							{
 								std::lock_guard<std::mutex> spaceshipsdatalock(Game::getInstance().data_mutex);
 								auto it = std::find_if(Game::getInstance().data.spaceships.begin(), Game::getInstance().data.spaceships.end(), [sid](const Game::Spaceship& s) { return s.sid == sid; });
-								Game::getInstance().data.spaceships.erase(it);
+								if (it != Game::getInstance().data.spaceships.end())
+									Game::getInstance().data.spaceships.erase(it);
 							}
 							{
 								std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);

@@ -7,11 +7,12 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <thread>
+#include <chrono>
 #pragma comment(lib, "ws2_32.lib")  // Link Winsock library
 
 #define LOCALHOST_DEV       // for developing on 1 machine
 
-#define JS_DEBUG
+//#define JS_DEBUG
 
 #ifndef JS_DEBUG
 
@@ -327,7 +328,7 @@ void listenForBroadcast() {
 
 
 // Initialize UDP connection
-void initNetwork() {
+bool initNetwork() {
     
 #ifndef JS_DEBUG
     std::cout << "Enter Server IP Address: ";
@@ -381,10 +382,19 @@ void initNetwork() {
     char buffer[512];
     sockaddr_in fromAddr;
     int fromSize = sizeof(fromAddr);
-    int retries = 1000;  // Wait for a few tries    !TODO: would be better to use a time based timeout system
     bool connected = false;
 
-    while (retries-- > 0) {
+    auto start = std::chrono::high_resolution_clock::now();
+    constexpr float timeoutMs = 10000.f;
+
+    while (true) {
+        auto curr = std::chrono::high_resolution_clock::now();
+        float elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(curr - start).count();
+        if (elapsedMs > timeoutMs) {
+            std::cout << "Connection request timed out." << std::endl;
+            break;
+        }
+
         int recvLen = recvfrom(udpSocket, buffer, sizeof(buffer), 0, (sockaddr*)&fromAddr, &fromSize);
 
         if (recvLen > 0) {
@@ -438,16 +448,15 @@ void initNetwork() {
             }
             else if (serverMsg == CONN_REJECTED) {
                 std::cerr << "Connection rejected by server.\n";
-                return;
+                return false;
             }
         }
-
-        Sleep(500);  // Wait before retrying
     }
 
     if (!connected)
         std::cerr << "Failed to connect to server" << std::endl;
 
+    return connected;
 }
 
 //
@@ -516,7 +525,11 @@ void closeNetwork() {
 
 
 void GameLogic::init() {
-    initNetwork();
+    bool success = initNetwork();
+    if (!success) {
+        exit(1);
+    }
+
     startNetworkThread();  // Start receiving data
 
     // Score Init
