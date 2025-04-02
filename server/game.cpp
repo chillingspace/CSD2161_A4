@@ -90,7 +90,7 @@ void Game::updateGame() {
 				a.pos += a.vector * dt;
 			}
 
-			if ((int)data.asteroids.size() < MAX_ASTEROIDS && (curr - last_asteroid_spawn_time).count() > ASTEROID_SPAWN_INTERVAL_MS / 1000) {
+			if ((int)data.asteroids.size() < MAX_ASTEROIDS && std::chrono::duration<float, std::milli>(curr - last_asteroid_spawn_time).count() > ASTEROID_SPAWN_INTERVAL_MS) {
 #ifdef VERBOSE_LOGGING
 				{
 					std::lock_guard<std::mutex> coutlock(Server::getInstance()._stdoutMutex);
