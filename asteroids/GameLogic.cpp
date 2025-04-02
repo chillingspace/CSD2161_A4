@@ -800,9 +800,11 @@ void GameLogic::applyEntityUpdates() {
             // Update existing player
             Player* p = players[updatedPlayer.sid];
             p->position = updatedPlayer.position;
-            p->angle = updatedPlayer.angle;
             p->lives_left = updatedPlayer.lives_left;
             p->score = updatedPlayer.score;
+
+            if (updatedPlayer.sid != current_session_id)
+                p->angle = updatedPlayer.angle;
         }
         else {
 
