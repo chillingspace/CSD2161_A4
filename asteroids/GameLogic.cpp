@@ -78,6 +78,7 @@ std::unordered_map<uint8_t, Player*> GameLogic::players{};
 std::vector<Player> updatedPlayers;
 std::vector<Bullet> updatedBullets;
 std::vector<Asteroid> updatedAsteroids;
+bool updatedEntities;
 
 // Game conditions
 float GameLogic::game_timer;
@@ -286,6 +287,8 @@ void listenForBroadcast() {
 
                     int num_asteroids = buffer[offset++];
 
+                    updatedAsteroids.clear();
+
                     // Read Asteroid Data (8 bytes per asteroid)
                     for (int i = 0; i < num_asteroids; i++) {
                         if (offset + 8 > bytesReceived) {
@@ -301,7 +304,7 @@ void listenForBroadcast() {
                         offset += sizeof(float);
 
                         updatedAsteroids.push_back(a);
-
+                        updatedEntities = true;
                         std::cout << "Asteroid Pos: (" << a.position.x << ", " << a.position.y << ")" << "\n";
                     }
 
@@ -627,7 +630,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
             //entitiesToAdd.clear();
 
             for (size_t i = 0; i < entities.size(); i++) {
-                entities[i]->update(delta_time);
+                //entities[i]->update(delta_time);
                 entities[i]->render(window);
             }
 
@@ -669,12 +672,10 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
     window.draw(timer_text);
 
-
-  
-
 }
 void GameLogic::applyEntityUpdates() {
     // Update players
+
     for (const auto& updatedPlayer : updatedPlayers) {
         if (players.count(updatedPlayer.sid)) {
             // Update existing player
@@ -689,22 +690,44 @@ void GameLogic::applyEntityUpdates() {
         }
     }
 
-    // Update bullets
-    for (const auto& updatedBullet : updatedBullets) {
-        Bullet* newBullet = new Bullet(updatedBullet);
-        entities.push_back(newBullet);
+    if (updatedEntities) {
+        // Remove existing bullets
+        entities.erase(std::remove_if(entities.begin(), entities.end(), [](Entity* e) {
+            if (Bullet* bullet = dynamic_cast<Bullet*>(e)) {
+                delete bullet;  // Free memory
+                return true;
+            }
+            return false;
+            }), entities.end());
+
+        // Update bullets
+        for (const auto& updatedBullet : updatedBullets) {
+            Bullet* newBullet = new Bullet(updatedBullet);
+            entities.push_back(newBullet);
+        }
+
+        entities.erase(std::remove_if(entities.begin(), entities.end(), [](Entity* e) {
+            if (Asteroid* asteroid = dynamic_cast<Asteroid*>(e)) {
+                delete asteroid;  // Free memory
+                return true;
+            }
+            return false;
+            }), entities.end());
+
+        // Update asteroids
+        for (const auto& updatedAsteroid : updatedAsteroids) {
+            Asteroid* newAsteroid = new Asteroid(updatedAsteroid);
+            entities.push_back(newAsteroid);
+        }
+        updatedEntities = false;
     }
 
-    // Update asteroids
-    for (const auto& updatedAsteroid : updatedAsteroids) {
-        Asteroid* newAsteroid = new Asteroid(updatedAsteroid);
-        entities.push_back(newAsteroid);
-    }
+
 
     // Clear update buffers
-    updatedPlayers.clear();
-    updatedBullets.clear();
-    updatedAsteroids.clear();
+    //updatedPlayers.clear();
+    //updatedBullets.clear();
+    //updatedAsteroids.clear();
 }
 
 
