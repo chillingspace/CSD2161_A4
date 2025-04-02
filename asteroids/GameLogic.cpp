@@ -237,13 +237,14 @@ void listenForBroadcast() {
                         }
 
                         Player s;
-                        memcpy(&s.sid, &buffer[offset], 4);
-                        memcpy(&s.position.x, &buffer[offset + 4], 4);
-                        memcpy(&s.position.y, &buffer[offset + 8], 4);
-                        memcpy(&s.lives_left, &buffer[offset + 12], 1);
-                        memcpy(&s.score, &buffer[offset + 13], 2);
+                        memcpy(&s.sid, &buffer[offset++], 4);
+                        s.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+                        offset += 4;
+                        s.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+                        offset += 4;
+                        memcpy(&s.lives_left, &buffer[offset++], 1);
+                        memcpy(&s.score, &buffer[offset++], 2);
 
-                        offset += 15;
                         players.push_back(s);
 
                         std::cout << "Spaceship SID: " << s.sid
@@ -263,11 +264,12 @@ void listenForBroadcast() {
                         }
 
                         Bullet b;
-                        memcpy(&b.sid, &buffer[offset], 4);
-                        memcpy(&b.position.x, &buffer[offset + 4], 4);
-                        memcpy(&b.position.y, &buffer[offset + 8], 4);
+                        memcpy(&b.sid, &buffer[offset++], 4);
+                        b.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+                        offset += 4;
+                        b.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+                        offset += 4;
 
-                        offset += 9;
                         bullets.push_back(b);
 
                         std::cout << "Bullet Owner SID: " << b.sid
@@ -293,7 +295,6 @@ void listenForBroadcast() {
                         a.size = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                         offset += sizeof(float);
 
-                        offset += 8;
                         asteroids.push_back(a);
 
                         std::cout << "Asteroid Pos: (" << a.position.x << ", " << a.position.y << ")"
