@@ -121,6 +121,13 @@ void listenForUdpMessages() {
             uint8_t cmd = buffer[0]; // First byte is the command identifier
 
             switch (cmd) {
+            case CONN_ACCEPTED:
+            {
+                std::vector<char> buf{ ACK_CONN_REQUEST };
+                sendData(buf);
+                break;
+            }
+
             case ALL_ENTITIES:
                 std::cout << "Received ALL_ENTITIES update.\n";
                 // Process entity updates (to be implemented)
@@ -202,15 +209,30 @@ void listenForBroadcast() {
 
             switch (cmd) {
                 case START_GAME:
-                    
+                {
+
                     if (GameLogic::is_game_over) {
                         GameLogic::start();
                         std::cout << "starting" << std::endl;
                     }
 
+                    // !TODO: sean pls populate ur thing
+                    std::unordered_map<int, std::string> placeholder_sid_playername_map;
+
+                    int offset = 2;
+                    for (int i{}; i < buffer[1]; i++) {     // iterate through num players
+                        int sid = buffer[offset++];
+                        int playernamesize = buffer[offset++];
+                        for (int j{}; j < playernamesize; j++) {    // iterate through num chars in player name
+                            placeholder_sid_playername_map[sid] += buffer[offset+j];
+                        }
+                        offset += playernamesize;
+                    }
+
                     // Example: Send ACK_START_GAME back to sender
                     send_buffer = { ACK_START_GAME };
                     sendData(send_buffer);
+                }
                 break;
                 case ALL_ENTITIES: {
                     std::cout << "Received ALL_ENTITIES update (" << bytesReceived << " bytes).\n";

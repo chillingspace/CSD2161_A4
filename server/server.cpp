@@ -504,10 +504,26 @@ void Server::requestHandler() {
 					break;
 				}
 
-				std::vector<char> buf(16);
+				std::vector<char> buf;
+				buf.reserve(100);
 				//buf.resize(MAX_PACKET_SIZE);
 
-				buf[0] = START_GAME;
+				buf.push_back(START_GAME);
+				
+				{
+					std::lock_guard<std::mutex> dlock(Game::getInstance().data_mutex);
+
+					// num players
+					buf.push_back((char)Game::getInstance().data.spaceships.size());
+
+					for (const Game::Spaceship& s : Game::getInstance().data.spaceships) {
+						buf.push_back(s.sid & 0xff);			// sid
+						buf.push_back((char)s.name.size());		// playername size
+						for (const char c : s.name) {			// player name
+							buf.push_back(c);
+						}
+					}
+				}
 
 				Game::getInstance().data.reset();
 
