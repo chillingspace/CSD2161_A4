@@ -126,68 +126,53 @@ void Game::updateGame() {
 
 			// check for collisions
 			for (auto a_it = data.asteroids.begin(); a_it != data.asteroids.end();) {
-				const Asteroid& a = *a_it;
 				bool hasAsteroidCollided = false;
 
-				// check for collision with bullet
+				// Check collision with bullets
 				for (auto b_it = data.bullets.begin(); b_it != data.bullets.end();) {
-					const Bullet& b = *b_it;
-
-					if (!circleCollision({ b.pos, b.radius }, { a.pos, a.radius })) {
+					if (!circleCollision({ b_it->pos, b_it->radius }, { a_it->pos, a_it->radius })) {
 						++b_it;
 						continue;
 					}
-					auto owner = std::find_if(data.spaceships.begin(), data.spaceships.end(), [&b](const Spaceship& s) {return s.sid == b.sid; });
 
-					if (owner == data.spaceships.end()) {
-						// possibly player got disconnected (unlikely to happen because of timeout duration)
-						constexpr const char* err = "Bullet owner(spaceship) does not exist";
-						std::cerr << err << std::endl;
-						//throw std::runtime_error(err);
+					auto owner = std::find_if(data.spaceships.begin(), data.spaceships.end(),
+						[&b_it](const Spaceship& s) { return s.sid == b_it->sid; });
+
+					if (owner != data.spaceships.end()) {
+						++owner->score;
 					}
 
-					++owner->score;
 					b_it = data.bullets.erase(b_it);
 					hasAsteroidCollided = true;
 					break;
 				}
 
 				if (hasAsteroidCollided) {
-					a_it = data.asteroids.erase(a_it);
+					a_it = data.asteroids.erase(a_it); // Erase safely, and continue iteration
 					continue;
 				}
 
-				// check for collision with spaceship
-				for (auto s_it = data.spaceships.begin(); s_it != data.spaceships.end();) {
-					const Spaceship& s = *s_it;
+				// Check collision with spaceships
+				for (auto s_it = data.spaceships.begin(); s_it != data.spaceships.end(); ++s_it) {
+					if (s_it->lives_left <= 0) continue;
 
-					if (s.lives_left <= 0) {
-						// dont update for dead spaceships
-						continue;
-					}
-
-					if (!circleCollision({ s.pos, s.radius }, { a.pos, a.radius })) {
-						++s_it;
+					if (!circleCollision({ s_it->pos, s_it->radius }, { a_it->pos, a_it->radius })) {
 						continue;
 					}
 
 					data.killSpaceship(s_it);
-					// !NOTE: wont be removed as need to keep track of score, client to handle dead spaceships
-					//if (s_it->lives_left <= 0) {
-					//	s_it = data.spaceships.erase(s_it);
-					//}
 					hasAsteroidCollided = true;
 					break;
 				}
 
 				if (hasAsteroidCollided) {
-					a_it = data.asteroids.erase(a_it);
-					continue;
+					a_it = data.asteroids.erase(a_it); // Erase safely
 				}
 				else {
 					++a_it;
 				}
 			}
+
 
 
 			// update last updated time

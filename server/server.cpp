@@ -130,12 +130,12 @@ int Server::broadcastData(const std::vector<char>& buffer) {
 		std::cerr << "sendto() failed with wsa error: " << wsaError << std::endl;
 	}
 	{
-		std::lock_guard<std::mutex> soutlock(_stdoutMutex);
+		/*std::lock_guard<std::mutex> soutlock(_stdoutMutex);
 		std::cout << "Sending packet: ";
 		for (int i = 0; i < buffer.size(); ++i) {
 			std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(uint8_t)buffer[i] << " ";
 		}
-		std::cout << std::dec << std::endl;
+		std::cout << std::dec << std::endl;*/
 	}
 	return bytesSent;
 }
@@ -283,6 +283,7 @@ void Server::udpListener() {
 			{
 				std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
 				std::cout << "Client with SID " << sid << " acknowledged start game." << std::endl;
+				std::cout << "Current ack count: " << ack_start_game_clients.size() << std::endl;
 			}
 			break;
 		}
@@ -487,7 +488,8 @@ void Server::requestHandler() {
 					num_conns = (int)Game::getInstance().data.spaceships.size();
 				}
 
-				auto bc = [this, &buf, num_conns]() {
+				auto bc = [this, &buf, &num_conns]() {  
+
 					int num_acks{};
 
 					auto start = std::chrono::high_resolution_clock::now();
@@ -517,19 +519,24 @@ void Server::requestHandler() {
 									}
 									it = Game::getInstance().data.spaceships.erase(it);
 								}
+								// num_conns = (int)Game::getInstance().data.spaceships.size();
 							}
 
 							break;
+						}
+
+
+						{
+							std::lock_guard<std::mutex> acklock(ack_start_game_clients_mutex);
+							num_acks = (int)ack_start_game_clients.size();
+							std::cout << "num of acks" << num_acks << "num of conss" << num_conns << std::endl;
+							if (num_acks >= num_conns) break;  // Exit if all clients acknowledged
 						}
 
 						broadcastData(buf);
 
 						std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT_MS));
 
-						{
-							std::lock_guard<std::mutex> acklock(ack_start_game_clients_mutex);
-							num_acks = (int)ack_start_game_clients.size();
-						}
 					}
 
 					// cleanup acks

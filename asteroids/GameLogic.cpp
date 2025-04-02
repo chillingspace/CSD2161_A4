@@ -11,7 +11,7 @@
 
 #define LOCALHOST_DEV       // for developing on 1 machine
 
-//#define JS_DEBUG
+#define JS_DEBUG
 
 #ifndef JS_DEBUG
 
@@ -71,6 +71,20 @@ std::list<Entity*> GameLogic::entitiesToDelete{};
 std::list<Entity*> GameLogic::entitiesToAdd{};
 std::unordered_map<uint8_t, Player*> GameLogic::players{};
 
+// Game conditions
+float GameLogic::game_timer;
+bool GameLogic::is_game_over;
+
+// Asteroids conditions
+float GameLogic::asteroid_spawn_time;
+
+
+// Font and text
+sf::Font font;
+sf::Text game_over_text;
+sf::Text player_score_text;
+
+
 // Colors of the player
 std::vector<sf::Color> player_colors = {
     sf::Color::Magenta,
@@ -78,6 +92,20 @@ std::vector<sf::Color> player_colors = {
     sf::Color::Green,
     sf::Color::Yellow
 };
+
+
+// Send player input
+void sendData(const std::vector<char>& buffer) {
+    int sendResult = sendto(udpSocket, buffer.data(), buffer.size(), 0,
+        (sockaddr*)&serverAddr, sizeof(serverAddr));
+    if (sendResult == SOCKET_ERROR) {
+        std::cerr << "Failed to send data: " << WSAGetLastError() << "\n";
+    }
+    else {
+        std::cout << "Sending data" << std::endl;
+    }
+}
+
 
 void listenForBroadcast() {
     if (udpBroadcastSocket == -1) {
@@ -126,12 +154,23 @@ void listenForBroadcast() {
 
             char cmd = buffer[0];
             switch (cmd) {
-            case START_GAME:
-                GameLogic::start();
+                case START_GAME:
+                    
+                    if (GameLogic::is_game_over) {
+                        GameLogic::start();
+                        std::cout << "starting" << std::endl;
+                    }
+
+                    // Example: Send ACK_START_GAME back to sender
+                    std::vector<char> buffer = { ACK_START_GAME };
+                    sendData(buffer);
+                    break;
+
             }
 
             buffer[bytesReceived] = '\0';
             std::cout << "Received broadcast from " << SERVER_IP << ": " << buffer << std::endl;
+
         }
         else if (bytesReceived == -1) {
             //std::cout << "Bytes received == -1: " << WSAGetLastError() << std::endl;
@@ -187,15 +226,8 @@ void initNetwork() {
     inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
 #endif
     // Send connection request
-    char connRequest = CONN_REQUEST;
-    int sendResult = sendto(udpSocket, &connRequest, sizeof(connRequest), 0,
-        (sockaddr*)&serverAddr, sizeof(serverAddr));
-
-    if (sendResult == SOCKET_ERROR) {
-        std::cerr << "Failed to send connection request. Error: " << WSAGetLastError() << "\n";
-        return;
-    }
-
+    std::vector<char> conn_buffer = { CONN_REQUEST };
+    sendData(conn_buffer);
     std::cout << "Sent connection request to server. Waiting for response...\n";
 
     // Wait for server response
@@ -252,16 +284,9 @@ void initNetwork() {
                 GameLogic::entitiesToAdd.push_back(new_player);
 
                 // Send ACK_CONN_REQUEST
-                char ack = ACK_CONN_REQUEST;
-                sendResult = sendto(udpSocket, &ack, sizeof(ack), 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
-
-                if (sendResult == SOCKET_ERROR) {
-                    std::cerr << "Failed to send ACK_CONN_REQUEST. Error: " << WSAGetLastError() << "\n";
-                }
-                else {
-                    std::cout << "Sent ACK_CONN_REQUEST to server.\n";
-                }
-
+                conn_buffer.clear();
+                conn_buffer.push_back(ACK_CONN_REQUEST);
+                sendData(conn_buffer);
                 break;
             }
             else if (serverMsg == CONN_REJECTED) {
@@ -276,18 +301,6 @@ void initNetwork() {
     if (!connected)
         std::cerr << "Failed to connect to server" << std::endl;
 
-}
-
-// Send player input
-void sendPlayerInput(char input) {
-    int sendResult = sendto(udpSocket, &input, sizeof(input), 0,
-        (sockaddr*)&serverAddr, sizeof(serverAddr));
-    if (sendResult == SOCKET_ERROR) {
-        std::cerr << "Failed to send player input. Error: " << WSAGetLastError() << "\n";
-    }
-    else {
-        std::cout << "Sending data" << std::endl;
-    }
 }
 
 //
@@ -351,18 +364,6 @@ void closeNetwork() {
 //    }
 //}
 
-// Game conditions
-float GameLogic::game_timer;
-bool GameLogic::is_game_over;
-
-// Asteroids conditions
-float GameLogic::asteroid_spawn_time;
-
-
-// Font and text
-sf::Font font;
-sf::Text game_over_text;
-sf::Text player_score_text;
 
 
 
@@ -416,40 +417,59 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
     window.clear();
     
     // Test commands
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num1)) sendPlayerInput(REQ_START_GAME);
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num2)) sendPlayerInput(ACK_CONN_REQUEST);
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num3))  sendPlayerInput(ACK_CONN_REQUEST);
+
     //if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num4)) sendPlayerInput('D');
 
-    // TO BE MOVED TO SERVER
-    {
-        asteroid_spawn_time -= delta_time;
+    if (is_game_over) {
+        game_over_text.setString("Press Enter to Start a New Match");
+        window.draw(game_over_text);
 
-        for (auto& entity : entitiesToAdd) {
-            entities.push_back(entity);
-        }
-        entitiesToAdd.clear();
+        // Wait for Enter key to restart
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
+            //entities.clear();
 
-        for (size_t i = 0; i < entities.size(); i++) {
-            entities[i]->update(delta_time);
-            entities[i]->render(window);
-        }
-
-        for (auto* entity : entitiesToDelete) {
-            auto it = std::find(entities.begin(), entities.end(), entity);
-            if (it != entities.end()) {
-                delete* it;       // Delete the object
-                entities.erase(it); // Remove from the list
+            char cmd = REQ_START_GAME;
+            int sendResult = sendto(udpSocket, &cmd, sizeof(cmd), 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
+            if (sendResult == SOCKET_ERROR) {
+                std::cerr << "Failed to send connection request. Error: " << WSAGetLastError() << "\n";
+                return;
             }
         }
-        entitiesToDelete.clear();
 
-        if (asteroid_spawn_time <= 0.f && entities.size() <= 12) {
-            entities.push_back(new Asteroid());
-            entities.push_back(new Asteroid());
-            asteroid_spawn_time = ASTEROID_SPAWN_TIME;
+
+    }
+    else {
+        // TO BE MOVED TO SERVER
+        {
+            asteroid_spawn_time -= delta_time;
+
+            for (auto& entity : entitiesToAdd) {
+                entities.push_back(entity);
+            }
+            entitiesToAdd.clear();
+
+            for (size_t i = 0; i < entities.size(); i++) {
+                entities[i]->update(delta_time);
+                entities[i]->render(window);
+            }
+
+            for (auto* entity : entitiesToDelete) {
+                auto it = std::find(entities.begin(), entities.end(), entity);
+                if (it != entities.end()) {
+                    delete* it;       // Delete the object
+                    entities.erase(it); // Remove from the list
+                }
+            }
+            entitiesToDelete.clear();
+
+            if (asteroid_spawn_time <= 0.f && entities.size() <= 12) {
+                entities.push_back(new Asteroid());
+                entities.push_back(new Asteroid());
+                asteroid_spawn_time = ASTEROID_SPAWN_TIME;
+            }
         }
     }
+ 
 
     // Draw scoreboard based on num of players
     int i = 0;
@@ -472,24 +492,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
     window.draw(timer_text);
 
 
-    if (is_game_over) {
-        game_over_text.setString("Press Enter to Start a New Match");
-        window.draw(game_over_text);
-
-        // Wait for Enter key to restart
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
-            //entities.clear();
-
-            char cmd = REQ_START_GAME;
-            int sendResult = sendto(udpSocket, &cmd, sizeof(cmd), 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
-            if (sendResult == SOCKET_ERROR) {
-                std::cerr << "Failed to send connection request. Error: " << WSAGetLastError() << "\n";
-                return;
-            }
-        }
-
-       
-    }
+  
 
 }
 
