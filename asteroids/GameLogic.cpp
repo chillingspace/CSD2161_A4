@@ -9,7 +9,9 @@
 #include <thread>
 #pragma comment(lib, "ws2_32.lib")  // Link Winsock library
 
-#define JS_DEBUG
+#define LOCALHOST_DEV       // for developing on 1 machine
+
+//#define JS_DEBUG
 
 #ifndef JS_DEBUG
 
@@ -22,9 +24,10 @@ int SERVER_PORT;
 
 SOCKET udpSocket;
 sockaddr_in serverAddr;
+SOCKET udpBroadcastSocket = -1;
+sockaddr_in serverBroadcastAddr;
 
 uint16_t udpBroadcastPort; 
-uint16_t udpClientBroadcastPort;
 
 bool isRunning = true;  // Used for network thread
 
@@ -77,47 +80,65 @@ std::vector<sf::Color> player_colors = {
 };
 
 void listenForBroadcast() {
-    SOCKET udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (udpSocket == INVALID_SOCKET) {
-        std::cerr << "Error creating UDP socket: " << WSAGetLastError() << std::endl;
-        return;
+    if (udpBroadcastSocket == -1) {
+        udpBroadcastSocket = socket(AF_INET, SOCK_DGRAM, 0);
+        if (udpBroadcastSocket == INVALID_SOCKET) {
+            std::cerr << "Socket creation failed.\n";
+            WSACleanup();
+            exit(1);
+        }
+        std::cout << "UDP broadcast socket created successfully with port\n";
+
+        u_long mode = 1;
+        ioctlsocket(udpBroadcastSocket, FIONBIO, &mode);  // Set to non-blocking mode
+
+        serverBroadcastAddr.sin_family = AF_INET;
+        serverBroadcastAddr.sin_port = htons(udpBroadcastPort);
+
+#ifdef LOCALHOST_DEV
+        const char* ip = "127.0.0.1";   // localhost addr
+        if (inet_pton(AF_INET, ip, &serverBroadcastAddr.sin_addr) <= 0) {
+            std::cerr << "Invalid address/Address not supported\n";
+        }
+#else
+        serverBroadcastAddr.sin_addr.s_addr = INADDR_ANY;       // !TODO: need to test on multiple devices
+#endif
+
+        if (bind(udpBroadcastSocket, (sockaddr*)&serverBroadcastAddr, sizeof(serverBroadcastAddr)) == SOCKET_ERROR) {
+            std::cerr << "Bind failed: " << WSAGetLastError() << "\n";
+            closesocket(udpBroadcastSocket);
+            WSACleanup();
+            exit(1);
+        }
+
+        std::cout << "UDP broadcast socket bind success" << std::endl;
     }
 
-    // Allow broadcast
-    BOOL broadcastEnable = TRUE;
-    if (setsockopt(udpSocket, SOL_SOCKET, SO_BROADCAST, (char*)&broadcastEnable, sizeof(broadcastEnable)) == SOCKET_ERROR) {
-        std::cerr << "Failed to set broadcast option: " << WSAGetLastError() << std::endl;
-        closesocket(udpSocket);
-        return;
-    }
-
-    // Bind socket to the broadcast port (udpBroadcastPort)
-    sockaddr_in recvAddr;
-    recvAddr.sin_family = AF_INET;
-    recvAddr.sin_addr.s_addr = INADDR_ANY;  // Listen on all network interfaces
-    //recvAddr.sin_port = htons(udpClientBroadcastPort); 
-    recvAddr.sin_port = htons(udpBroadcastPort); // i dont understand how bindign works
-    if (bind(udpSocket, (sockaddr*)&recvAddr, sizeof(recvAddr)) == SOCKET_ERROR) {
-        std::cerr << "Bind failed: " << WSAGetLastError() << std::endl;
-        closesocket(udpSocket);
-        return;
-    }
-
-    std::cout << "Listening for UDP broadcasts on port " << udpBroadcastPort << "..." << std::endl;
+    std::cout << "Listening for UDP broadcasts on port " << serverBroadcastAddr.sin_port << "..." << std::endl;
 
     while (true) {
         char buffer[1024];
         sockaddr_in senderAddr;
         int senderAddrSize = sizeof(senderAddr);
 
-        int bytesReceived = recvfrom(udpSocket, buffer, sizeof(buffer) - 1, 0, (sockaddr*)&senderAddr, &senderAddrSize);
+        int bytesReceived = recvfrom(udpBroadcastSocket, buffer, sizeof(buffer) - 1, 0, (sockaddr*)&senderAddr, &senderAddrSize);
         if (bytesReceived > 0) {
+
+            char cmd = buffer[0];
+            switch (cmd) {
+            case START_GAME:
+                GameLogic::start();
+            }
+
             buffer[bytesReceived] = '\0';
             std::cout << "Received broadcast from " << SERVER_IP << ": " << buffer << std::endl;
         }
+        else if (bytesReceived == -1) {
+            //std::cout << "Bytes received == -1: " << WSAGetLastError() << std::endl;
+        }
     }
 
-    closesocket(udpSocket);
+    closesocket(udpBroadcastSocket);
     WSACleanup();
 }
 
@@ -181,7 +202,7 @@ void initNetwork() {
     char buffer[512];
     sockaddr_in fromAddr;
     int fromSize = sizeof(fromAddr);
-    int retries = 10;  // Wait for a few tries
+    int retries = 1000;  // Wait for a few tries    !TODO: would be better to use a time based timeout system
     bool connected = false;
 
     while (retries-- > 0) {
@@ -204,10 +225,6 @@ void initNetwork() {
                 memcpy(&udpBroadcastPort, buffer + offset, sizeof(uint16_t));
                 udpBroadcastPort = ntohs(udpBroadcastPort); // Convert from network byte order if needed
                 offset += 2;
-                // Create and bind the second UDP socket for the broadcast port
-                udpClientBroadcastPort = udpBroadcastPort - 2;
-
-                std::cout << udpClientBroadcastPort << std::endl;
 
                 // Read Spawn X (4 bytes, float)
                 float spawnPosX;
@@ -256,6 +273,9 @@ void initNetwork() {
         Sleep(500);  // Wait before retrying
     }
 
+    if (!connected)
+        std::cerr << "Failed to connect to server" << std::endl;
+
 }
 
 // Send player input
@@ -292,7 +312,7 @@ void sendPlayerInput(char input) {
 
 void startNetworkThread() {
     std::thread recvThread(listenForBroadcast);
-    recvThread.detach();
+    recvThread.detach();        // !TODO: should not detach, is infinite loop and will result in resource leak
     std::cout << "Started network thread.\n";
 
     //// Start broadcast listener in a separate thread
@@ -459,7 +479,13 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
         // Wait for Enter key to restart
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
             //entities.clear();
-            start();
+
+            char cmd = REQ_START_GAME;
+            int sendResult = sendto(udpSocket, &cmd, sizeof(cmd), 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
+            if (sendResult == SOCKET_ERROR) {
+                std::cerr << "Failed to send connection request. Error: " << WSAGetLastError() << "\n";
+                return;
+            }
         }
 
        

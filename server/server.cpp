@@ -23,6 +23,7 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 
 #define VERBOSE_LOGGING
 #define JS_DEBUG
+#define LOCALHOST_DEV
 
 Server& Server::getInstance() {
 	static Server instance;
@@ -107,23 +108,35 @@ int Server::broadcastData(const std::vector<char>& buffer) {
 	SecureZeroMemory(&udp_addr_in, sizeof(udp_addr_in));
 	udp_addr_in.sin_family = AF_INET;
 	udp_addr_in.sin_port = htons(serverUdpPortBroadcast);  // Make sure to use the correct port
-	udp_addr_in.sin_addr.s_addr = htonl(INADDR_BROADCAST);  // Broadcast address 255.255.255.255
+
+#ifndef LOCALHOST_DEV
+	udp_addr_in.sin_addr.s_addr = htonl(INADDR_BROADCAST);  // Broadcast address 255.255.255.255, !TODO: test on multiple devices
+#else
+	const char* ip = "127.0.0.1";
+	if (inet_pton(AF_INET, ip, &udp_addr_in.sin_addr) <= 0) {
+		std::cerr << "Invalid address/Address not supported\n";
+		return SOCKET_ERROR;
+	}
+#endif
 
 	int bytesSent = sendto(udp_socket_broadcast, buffer.data(), (int)buffer.size(), 0, reinterpret_cast<sockaddr*>(&udp_addr_in), sizeof(sockaddr_in));
 	if (bytesSent == SOCKET_ERROR) {
 		//std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
 		char errorBuffer[256];
 		strerror_s(errorBuffer, sizeof(errorBuffer), errno);
-		//std::cerr << "sendto() failed: " << errorBuffer << std::endl;
+		std::cerr << "sendto() failed: " << errorBuffer << std::endl;
 
 		int wsaError = WSAGetLastError();
-		//std::cerr << "sendto() failed with wsa error: " << wsaError << std::endl;
+		std::cerr << "sendto() failed with wsa error: " << wsaError << std::endl;
 	}
-	std::cout << "Sending packet: ";
-	for (int i = 0; i < buffer.size(); ++i) {
-		std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(uint8_t)buffer[i] << " ";
+	{
+		std::lock_guard<std::mutex> soutlock(_stdoutMutex);
+		std::cout << "Sending packet: ";
+		for (int i = 0; i < buffer.size(); ++i) {
+			std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(uint8_t)buffer[i] << " ";
+		}
+		std::cout << std::dec << std::endl;
 	}
-	std::cout << std::dec << std::endl;
 	return bytesSent;
 }
 
@@ -436,7 +449,7 @@ void Server::requestHandler() {
 						std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT_MS));
 
 						elapsed = std::chrono::high_resolution_clock::now() - start;
-						if (elapsed.count() > DISCONNECTION_TIMEOUT_DURATION_MS) {
+						if (elapsed.count() > DISCONNECTION_TIMEOUT_DURATION_MS / 1000) {
 							// disconnect client
 							{
 								std::lock_guard<std::mutex> spaceshipsdatalock(Game::getInstance().data_mutex);
