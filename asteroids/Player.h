@@ -3,8 +3,8 @@
 
 // TO BE MOVED TO SERVER
 // PLAYER VARIABLES
-constexpr float TURN_SPEED = 200.f;
-constexpr float ACCELERATION = 200.f; // Adjust as needed
+constexpr float TURN_SPEED = 500.f;
+constexpr float ACCELERATION = 500.f; // Adjust as needed
 constexpr float FRICTION = 0.995f;     // Lower = more drag
 
 constexpr float SHOT_DELAY = 0.5f;
@@ -15,7 +15,7 @@ constexpr float INVULNERABILITY_TIME = 1.f;
 
 class Player : public Entity {
     private:
-        sf::Vector2f velocity;
+
         sf::VertexArray vertices;
         float shot_timer;
 
@@ -26,7 +26,9 @@ class Player : public Entity {
         int lives_left;
         float death_timer;
         float invulnerability_timer;
+        sf::Vector2f velocity;
         sf::Color player_color;
+
 
         // Player constructor
         Player();
