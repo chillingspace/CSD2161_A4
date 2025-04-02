@@ -558,18 +558,8 @@ void Server::requestHandler() {
 					[&sid](const Game::Spaceship& s) { return s.sid == sid; }
 				);
 
-				// pos x
-				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
-				spaceship->pos.x = btof(bytes);
-				idx += (int)sizeof(float);
-
-				// pos y
-				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
-				spaceship->pos.y = btof(bytes);
-				idx += (int)sizeof(float);
-
 				// vector x
-				bytes.assign(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
+				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + sizeof(float));
 				spaceship->vector.x = btof(bytes);
 				idx += (int)sizeof(float);
 
@@ -614,6 +604,11 @@ void Server::requestHandler() {
 					Game::getInstance().data.bullets.push_back(b);
 				}
 
+				std::vector<char> sendBuffer;
+				sendBuffer.push_back(ACK_SELF_SPACESHIP);
+				sendBuffer.push_back(sid);
+				
+				sendData(sendBuffer, senderAddr);
 			}
 			}
 		}
