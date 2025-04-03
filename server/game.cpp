@@ -79,20 +79,21 @@ void Game::updateGame() {
 			for (Spaceship& s : data.spaceships) {
 				s.pos += s.vector * dt;
 
-				// wrap spaceship positions
-				if (s.pos.x < -WINDOW_WIDTH) {
+				// Wrap spaceship positions 
+				if (s.pos.x < 0) {
 					s.pos.x = WINDOW_WIDTH;
 				}
 				else if (s.pos.x > WINDOW_WIDTH) {
-					s.pos.x = -WINDOW_WIDTH;
+					s.pos.x = 0;
 				}
 
-				if (s.pos.y < -WINDOW_HEIGHT) {
+				if (s.pos.y < 0) {
 					s.pos.y = WINDOW_HEIGHT;
 				}
 				else if (s.pos.y > WINDOW_HEIGHT) {
-					s.pos.y = -WINDOW_HEIGHT;
+					s.pos.y = 0;
 				}
+
 			}
 
 			// update bullets
@@ -189,7 +190,7 @@ void Game::updateGame() {
 						[&b_it](const Spaceship& s) { return s.sid == b_it->sid; });
 
 					if (owner != data.spaceships.end()) {
-						++owner->score;
+						owner->score += 1;
 					}
 
 					b_it = data.bullets.erase(b_it);
@@ -258,7 +259,7 @@ void Game::updateGame() {
 		// check elapsed time
 		elapsed = std::chrono::high_resolution_clock::now() - start;
 
-		if (elapsed.count() > GAME_DURATION_S) {
+		if (std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() > GAME_DURATION_S) {
 			gameRunning = false;
 			{
 				std::lock_guard<std::mutex> lock(data_mutex);
@@ -286,18 +287,22 @@ void Game::updateGame() {
 
 
 	if (prevGameRunning && !gameRunning) {
+		std::cout << "Game ended sending " << std::endl;
 		// game ended, find winner sid
 		// !NOTE: draw conditions not handled
 		std::pair<int, int> winner_sid_score{ -1, -1 };
 		{
 			std::lock_guard<std::mutex> datalock(data_mutex);
-			std::for_each(data.spaceships.begin(), data.spaceships.end(), [&winner_sid_score](const Spaceship& s) {
+			for (const auto& s : data.spaceships) {
 				if (s.score > winner_sid_score.second) {
-					winner_sid_score.first = s.sid;
-					winner_sid_score.second = s.score;
+					winner_sid_score = { s.sid, s.score };
 				}
-				}
-			);
+			}
+
+			// If no player has a positive score, assign a default winner
+			if (winner_sid_score.first == -1 && !data.spaceships.empty()) {
+				winner_sid_score.first = data.spaceships.front().sid;
+			}
 		}
 
 		// get all time highest scores from file
@@ -309,7 +314,7 @@ void Game::updateGame() {
 		ebuf.push_back(Server::END_GAME);
 		ebuf.push_back(winner_sid_score.first);
 
-		auto reliable_bc = [this, &ebuf]() {
+		auto reliable_bc = [this, ebuf]() {
 			std::chrono::duration<float> elapsed;
 			auto start_bc_time = std::chrono::high_resolution_clock::now();
 
@@ -384,8 +389,10 @@ void Game::updateGame() {
 			std::lock_guard<std::mutex> tplock(Server::threadpool_mutex);
 			Server::threadpool.push_back(std::async(std::launch::async, reliable_bc));
 		}
-
-		prevGameRunning = gameRunning;
+		{
+			std::lock_guard<std::mutex> lock(data_mutex);
+			prevGameRunning = gameRunning;
+		}
 	}
 }
 
@@ -464,7 +471,7 @@ void Game::Data::reset() {
 	last_updated = std::chrono::high_resolution_clock::now();
 
 	for (Spaceship& s : spaceships) {
-		s.pos = { 500.f, 500.f };
+		s.pos = { WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f };
 		s.vector = { 0,0 };
 		s.rotation = 3.3f;
 		s.lives_left = Game::NUM_START_LIVES;
@@ -473,7 +480,7 @@ void Game::Data::reset() {
 }
 
 void Game::Data::killSpaceship(std::vector<Spaceship>::iterator& it) {
-	it->pos = { 0, 0 };
+	it->pos = { WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f };
 	it->vector = { 0,0 };
 	it->rotation = 0.f;
 	it->lives_left--;

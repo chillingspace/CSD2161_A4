@@ -16,7 +16,7 @@
 
 std::string playername;
 //
-//#define JS_DEBUG
+#define JS_DEBUG
 
 #ifndef JS_DEBUG
 
@@ -24,7 +24,7 @@ std::string SERVER_IP;
 int SERVER_PORT;
 #else
 //#define SERVER_IP "192.168.1.15"  // Replace with your server's IP
-#define SERVER_IP "192.168.0.23"
+#define SERVER_IP "169.254.253.95"
 #define SERVER_PORT 3001
 #endif
 
@@ -109,8 +109,8 @@ void sendData(const std::vector<char>& buffer) {
     if (sendResult == SOCKET_ERROR) {
         std::cerr << "Failed to send data: " << WSAGetLastError() << "\n";
     }
-    else {/*
-        std::cout << "Sending data" << std::endl;*/
+    else {
+        //std::cout << "Sending data" << std::endl;
     }
 }
 
@@ -132,16 +132,16 @@ void listenForUdpMessages() {
             switch (cmd) {
             case CONN_ACCEPTED:
             {
-                std::vector<char> buf{ ACK_CONN_REQUEST };
-                sendData(buf);
+                send_buffer.clear();
+                send_buffer.push_back(ACK_CONN_REQUEST);
+                std::cout << "send_buffer: ";
+                for (char c : send_buffer) {
+                    std::cout << static_cast<int>(c) << " ";  // Print as integers
+                }
+                std::cout << std::endl;
+                sendData(send_buffer);
                 break;
             }
-
-            case ALL_ENTITIES:
-                //std::cout << "Received ALL_ENTITIES update.\n";
-                // Process entity updates (to be implemented)
-                break;
-
             case ACK_NEW_BULLET:
             {
                 std::lock_guard<std::mutex> aclock(acked_seq_mutex);
@@ -150,15 +150,6 @@ void listenForUdpMessages() {
                 //std::cout << "Received ACK_SELF_SPACESHIP.\n";
                 
                 break;
-
-            case END_GAME:
-                std::cout << "Received END_GAME signal.\n";
-                GameLogic::gameOver();
-
-                send_buffer = { ACK_END_GAME };
-                sendData(send_buffer);
-                break;
-
             default:
                 std::cerr << "Unknown UDP message received: " << (int)cmd << "\n";
                 break;
@@ -190,7 +181,7 @@ void listenForBroadcast() {
 
         serverBroadcastAddr.sin_family = AF_INET;
         serverBroadcastAddr.sin_port = htons(udpBroadcastPort);
-
+        // 3001
 #ifdef LOCALHOST_DEV
         const char* ip = "127.0.0.1";   // localhost addr
         if (inet_pton(AF_INET, ip, &serverBroadcastAddr.sin_addr) <= 0) {
@@ -238,7 +229,7 @@ void listenForBroadcast() {
                         int sid = buffer[offset++];
                         int playernamesize = buffer[offset++];
                         for (int j{}; j < playernamesize; j++) {    // iterate through num chars in player name
-                            playersNames[sid] += buffer[offset+j];
+                            playersNames[sid] = buffer[offset+j];
                         }
                         offset += playernamesize;
                     }
@@ -349,6 +340,10 @@ void listenForBroadcast() {
                 case END_GAME:
                     std::cout << "Received END_GAME signal.\n";
                     GameLogic::gameOver();
+
+                    send_buffer = { ACK_END_GAME };
+
+                    sendData(send_buffer);
                     break;
 
             }
@@ -416,7 +411,9 @@ bool initNetwork() {
     inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
 #endif
 
-    // HANDLE UDP HANDSHAKE FIRST
+    // HANDLE 
+    // 
+    //  HANDSHAKE FIRST
     
     // Send connection request
     std::vector<char> conn_buffer = { CONN_REQUEST };
@@ -594,7 +591,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
         game_timer -= delta_time;
         if (game_timer <= 0.f) {
             gameOver(); 
-            entities.clear();
         }
     }
 
@@ -606,18 +602,19 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
         game_over_text.setString("Press Enter to Start a New Match");
         window.draw(game_over_text);
         int i = 0;
+
         for (auto& [score, player] : leaderboard) {
             if (i >= 5) break;  // Show only the top 5 players
 
             player_leaderboard.setPosition(sf::Vector2f(SCREEN_WIDTH / 2.f - 150.f, 200.f + (i * 80.f)));
-            player_leaderboard.setString(player + " Score: " + std::to_string(score));
+            player_leaderboard.setString(player + ": " + std::to_string(score));
             window.draw(player_leaderboard);
 
             i++;
         }
 
         // Wait for Enter key to restart
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter) && window.hasFocus()) {
             //entities.clear();
      
             // Test player
@@ -639,7 +636,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
             std::vector<char> buffer;  // Start empty
             bool useReliableSender = false;
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) && window.hasFocus()) {
                 //std::cout << "Rotating" << std::endl;
 
 
@@ -669,15 +666,20 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append rotation
-                bytes = Global::t_to_bytes(player->angle -= (TURN_SPEED * delta_time));
+                player->angle -= (TURN_SPEED * delta_time);
+                player->angle = std::fmod(player->angle + 360, 360);
+
+                // Convert to bytes and append
+                bytes = Global::t_to_bytes(player->angle);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
 
 
 
                 sendData(buffer);
             }
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) && window.hasFocus()) {
                 buffer.push_back(SELF_SPACESHIP);  // Packet type
                 buffer.push_back(static_cast<char>(current_session_id));  // Session ID
 
@@ -697,14 +699,17 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append rotation
-                bytes = Global::t_to_bytes(players[current_session_id]->angle += (TURN_SPEED * delta_time));
+                player->angle += (TURN_SPEED * delta_time);
+                player->angle = std::fmod(player->angle + 360, 360);
+
+                bytes = Global::t_to_bytes(player->angle);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
 
 
                 sendData(buffer);
             }
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) && window.hasFocus()) {
 
                 float radians = players[current_session_id]->angle * (M_PI / 180.f);
 
@@ -743,7 +748,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
                 sendData(buffer);
             }
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) && window.hasFocus()) {
 
                 float radians = players[current_session_id]->angle * (M_PI / 180.f);
 
@@ -782,7 +787,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
                 sendData(buffer);
             }
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && window.hasFocus()) {
                 static auto last_bullet_fired = std::chrono::high_resolution_clock::now();
                 auto now = std::chrono::high_resolution_clock::now();
 
@@ -794,7 +799,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                     float radians = players[current_session_id]->angle * (M_PI / 180.f);
 
                     buffer.push_back(NEW_BULLET);  // Packet type
-                    buffer.push_back(static_cast<char>(current_session_id));  // Session ID
+                    buffer.push_back(static_cast<char>(current_session_id));  // Session IDm
 
                     // sequence number (4 bytes)
                     buffer.push_back((seq >> 24) & 0xff);
@@ -932,7 +937,11 @@ void GameLogic::applyEntityUpdates() {
                 // Update existing player
                 Player* p = players[updatedPlayer.sid];
                 p->position = updatedPlayer.position;
-                p->lives_left = updatedPlayer.lives_left;
+                if (p->lives_left != updatedPlayer.lives_left) {
+                    p->velocity = updatedPlayer.velocity;
+                    p->lives_left = updatedPlayer.lives_left;
+                }
+
                 p->score = updatedPlayer.score;
 
                 if (updatedPlayer.sid != current_session_id)

@@ -498,6 +498,7 @@ void Server::requestHandler() {
 				break;
 			}
 			case REQ_START_GAME: {
+
 				std::cout << "Received start game request." << std::endl;
 
 				if (Game::getInstance().gameRunning) {
