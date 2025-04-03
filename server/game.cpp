@@ -263,7 +263,6 @@ void Game::updateGame() {
 			gameRunning = false;
 			{
 				std::lock_guard<std::mutex> lock(data_mutex);
-				data.reset();
 			}
 			{
 				std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
@@ -276,7 +275,6 @@ void Game::updateGame() {
 			gameRunning = false;
 			{
 				std::lock_guard<std::mutex> lock(data_mutex);
-				data.reset();
 			}
 			{
 				std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
@@ -323,7 +321,7 @@ void Game::updateGame() {
 
 		// modify highscores if user made it onto all time high scores
 		{
-			for (auto it = highscores.begin(); it != highscores.end(); it++) {
+			for (auto it = highscores.begin(); it != highscores.end(); ++it) {
 				if (winner_sid_score.second > it->score) {
 					Highscore hs;
 					{
@@ -346,6 +344,7 @@ void Game::updateGame() {
 					if (highscores.size() > NUM_HIGHSCORES) {
 						highscores.pop_back();			// remove lowest score to maintain top 5 highscores
 					}
+					break;
 				}
 			}
 
