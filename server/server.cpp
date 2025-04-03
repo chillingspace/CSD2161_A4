@@ -386,6 +386,10 @@ void Server::requestHandler() {
 					std::lock_guard<std::mutex> spaceshipsdatalock(Game::getInstance().data_mutex);
 					Game::getInstance().data.spaceships.push_back(new_spaceship);
 				}
+				{
+					std::lock_guard<std::mutex> lock(udp_clients_mutex);
+					udp_clients[sid] = senderAddr;
+				}
 
 				int buf_idx{};
 
@@ -475,6 +479,13 @@ void Server::requestHandler() {
 								auto it = std::find_if(Game::getInstance().data.spaceships.begin(), Game::getInstance().data.spaceships.end(), [sid](const Game::Spaceship& s) { return s.sid == sid; });
 								if (it != Game::getInstance().data.spaceships.end())
 									Game::getInstance().data.spaceships.erase(it);
+							}
+							{
+								// remove client from recipient
+								std::lock_guard<std::mutex> lock(udp_clients_mutex);
+								if (udp_clients.find(sid) != udp_clients.end()) {
+									udp_clients.erase(sid);
+								}
 							}
 							{
 								std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
@@ -590,7 +601,15 @@ void Server::requestHandler() {
 						}
 
 						// Continue broadcasting to request acks
-						broadcastData(buf);
+						//broadcastData(buf);
+
+						{
+							std::lock_guard<std::mutex> udplock(Server::getInstance().udp_clients_mutex);
+							for (const auto& [sid, sender] : Server::getInstance().udp_clients) {
+								Server::getInstance().sendData(buf, sender);
+							}
+						}
+
 						std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT_MS));
 
 					}
@@ -863,6 +882,13 @@ void Server::keepAliveChecker() {
 								break;
 							}
 							++it;
+						}
+					}
+					{
+						// remove client from recipient
+						std::lock_guard<std::mutex> lock(udp_clients_mutex);
+						if (udp_clients.find(sid) != udp_clients.end()) {
+							udp_clients.erase(sid);
 						}
 					}
 

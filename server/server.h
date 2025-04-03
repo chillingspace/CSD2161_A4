@@ -78,8 +78,8 @@ public:
 	SOCKET udp_socket{};
 	SOCKET udp_socket_broadcast{};
 
-	//std::unordered_map<SESSION_ID, sockaddr_in> udp_clients{};
-	//std::mutex udp_clients_mutex{};
+	std::unordered_map<SESSION_ID, sockaddr_in> udp_clients{};
+	std::mutex udp_clients_mutex{};
 
 	std::unordered_map<SESSION_ID, decltype(std::chrono::high_resolution_clock::now())> keep_alive_map;
 	std::mutex keep_alive_mutex;

@@ -255,7 +255,14 @@ void Game::updateGame() {
 
 
 		// broadcast data
-		Server::getInstance().broadcastData(sbuf);
+		//Server::getInstance().broadcastData(sbuf);
+
+		{
+			std::lock_guard<std::mutex> udplock(Server::getInstance().udp_clients_mutex);
+			for (const auto& [sid, sender] : Server::getInstance().udp_clients) {
+				Server::getInstance().sendData(sbuf, sender);
+			}
+		}
 
 		// check elapsed time
 		elapsed = std::chrono::high_resolution_clock::now() - start;
@@ -417,7 +424,14 @@ void Game::updateGame() {
 					break;
 				}
 
-				Server::getInstance().broadcastData(ebuf);
+				//Server::getInstance().broadcastData(ebuf);
+
+				{
+					std::lock_guard<std::mutex> udplock(Server::getInstance().udp_clients_mutex);
+					for (const auto& [sid, sender] : Server::getInstance().udp_clients) {
+						Server::getInstance().sendData(ebuf, sender);
+					}
+				}
 
 				std::this_thread::sleep_for(std::chrono::milliseconds(Server::TIMEOUT_MS));
 
@@ -444,6 +458,15 @@ void Game::updateGame() {
 							}
 
 							// spaceship(client) did not ack, remove
+
+							{
+								// remove client from recipient (POSSIBLE DEADLOCK)
+								std::lock_guard<std::mutex> udplock(Server::getInstance().udp_clients_mutex);
+								if (Server::getInstance().udp_clients.find(it->sid) != Server::getInstance().udp_clients.end()) {
+									Server::getInstance().udp_clients.erase(it->sid);
+								}
+							}
+
 							it = data.spaceships.erase(it);
 						}
 					}
