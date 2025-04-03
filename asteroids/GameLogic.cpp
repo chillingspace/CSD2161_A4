@@ -13,7 +13,6 @@
 
 /*#define LOCALHOST_DEV*/  // for developing on 1 machine
 
-
 std::string playername;
 //
 //#define JS_DEBUG
@@ -75,6 +74,7 @@ std::vector<Entity*> GameLogic::entities{};
 std::unordered_map<uint8_t, Player*> GameLogic::players{};
 std::unordered_map<int, std::string> playersNames;
 std::map<int, std::string, std::greater<int>> leaderboard;
+
 // Store the most recent entity updates in a global variable
 std::vector<Player> updatedPlayers;
 std::vector<Bullet> updatedBullets;
@@ -84,6 +84,8 @@ bool updatedEntities;
 // Game conditions
 float GameLogic::game_timer;
 bool GameLogic::is_game_over;
+uint8_t winner_id;
+uint8_t winner_score;
 
 // Asteroids conditions
 float GameLogic::asteroid_spawn_time;
@@ -138,7 +140,6 @@ void listenForUdpMessages() {
                 for (char c : send_buffer) {
                     std::cout << static_cast<int>(c) << " ";  // Print as integers
                 }
-                std::cout << std::endl;
                 sendData(send_buffer);
                 break;
             }
@@ -486,10 +487,10 @@ void listenForBroadcast() {
                 case END_GAME:
 
                     int offset = 1;
-                    uint8_t winner_id = buffer[offset++];
-                    uint8_t winner_score = buffer[offset++];
+                    winner_id = buffer[offset++];
+                    winner_score = buffer[offset++];
                     uint8_t num_high_scores = buffer[offset++];
-
+                    
                     for (int i = 0; i < num_high_scores; i++) {
                         int score = buffer[offset++];
                         int name_length = buffer[offset++];
@@ -767,12 +768,33 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
         window.draw(game_over_text);
         int i = 0;
 
+
         for (auto& [score, player] : leaderboard) {
+            if (i == 0) {
+                player_leaderboard.setString("Player Leaderboard");
+                player_leaderboard.setPosition(sf::Vector2f(SCREEN_WIDTH / 2.f - 150.f, 200.f));
+                window.draw(player_leaderboard);
+            }
+
             if (i >= 5) break;  // Show only the top 5 players
 
-            player_leaderboard.setPosition(sf::Vector2f(SCREEN_WIDTH / 2.f - 150.f, 200.f + (i * 80.f)));
+            player_leaderboard.setPosition(sf::Vector2f(SCREEN_WIDTH / 2.f - 150.f, 250.f + (i * 80.f)));
             player_leaderboard.setString(player + ": " + std::to_string(score));
             window.draw(player_leaderboard);
+
+            if (i == 4) {
+                std::string name;
+                if (playersNames.find(winner_id) != playersNames.end()) {
+                    name = playersNames[winner_id];
+                }
+                else {
+                    name = "Player " + std::to_string(winner_id);
+
+                }
+                player_leaderboard.setString(name + " Won! Score: " + std::to_string(winner_score));
+                player_leaderboard.setPosition(sf::Vector2f(SCREEN_WIDTH / 2.f - 250.f, 700.f));
+                window.draw(player_leaderboard);
+            }
 
             i++;
         }
@@ -1062,6 +1084,8 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
             }*/
             // Draw scoreboard based on num of players
             int i = 0;
+
+            window.draw(player_score_text);
             for (auto& [sessionID, player] : players) {
                 std::string name;
 
@@ -1072,12 +1096,13 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                     name = "Player " + std::to_string(sessionID);
 
                 }
-                player_score_text.setPosition(sf::Vector2f(40.f, 20.f + (i * 80.f)));
+                player_score_text.setPosition(sf::Vector2f(40.f, 40.f + (i * 80.f)));
                 player_score_text.setString(name + "\nScore: " + std::to_string(player->score));
                 player_score_text.setFillColor(player->player_color);
                 window.draw(player_score_text);
                 i++;
             }
+
 
         }
     }
@@ -1085,24 +1110,29 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
 
     // Show timer on screen
-    sf::Text timer_text;
-    timer_text.setFont(font);
-    timer_text.setCharacterSize(30);
-    timer_text.setPosition(sf::Vector2f(SCREEN_WIDTH / 2 - 40.f, 20.f)); // Adjust position as needed
-    timer_text.setString("Time: " + std::to_string(static_cast<int>(game_timer))); // Convert to int for display
+    if (!is_game_over) {
+        sf::Text timer_text;
+        timer_text.setFont(font);
+        timer_text.setCharacterSize(30);
+        timer_text.setPosition(sf::Vector2f(SCREEN_WIDTH / 2 - 40.f, 20.f)); // Adjust position as needed
+        timer_text.setString("Time: " + std::to_string(static_cast<int>(game_timer))); // Convert to int for display
 
 
-    window.draw(timer_text);
+        window.draw(timer_text);
+    }
+   
 
 }
 void GameLogic::applyEntityUpdates() {
     // Update players
+// Update players
     if (updatedEntities) {
         for (const auto& updatedPlayer : updatedPlayers) {
             if (players.count(updatedPlayer.sid)) {
                 // Update existing player
                 Player* p = players[updatedPlayer.sid];
                 p->position = updatedPlayer.position;
+
                 if (p->lives_left != updatedPlayer.lives_left) {
                     p->velocity = updatedPlayer.velocity;
                     p->lives_left = updatedPlayer.lives_left;
@@ -1114,34 +1144,26 @@ void GameLogic::applyEntityUpdates() {
                     p->angle = updatedPlayer.angle;
             }
         }
-        // Remove existing bullets
+
+        // Remove existing bullets & asteroids in a single pass
         entities.erase(std::remove_if(entities.begin(), entities.end(), [](Entity* e) {
-            if (Bullet* bullet = dynamic_cast<Bullet*>(e)) {
-                delete bullet;  // Free memory
+            if (dynamic_cast<Bullet*>(e) || dynamic_cast<Asteroid*>(e)) {
+                delete e;  // Free memory
                 return true;
             }
             return false;
             }), entities.end());
 
-        // Update bullets
+        // Add updated bullets
         for (const auto& updatedBullet : updatedBullets) {
-            Bullet* newBullet = new Bullet(updatedBullet);
-            entities.push_back(newBullet);
+            entities.push_back(new Bullet(updatedBullet));
         }
 
-        entities.erase(std::remove_if(entities.begin(), entities.end(), [](Entity* e) {
-            if (Asteroid* asteroid = dynamic_cast<Asteroid*>(e)) {
-                delete asteroid;  // Free memory
-                return true;
-            }
-            return false;
-            }), entities.end());
-
-        // Update asteroids
+        // Add updated asteroids
         for (const auto& updatedAsteroid : updatedAsteroids) {
-            Asteroid* newAsteroid = new Asteroid(updatedAsteroid);
-            entities.push_back(newAsteroid);
+            entities.push_back(new Asteroid(updatedAsteroid));
         }
+
         updatedEntities = false;
     }
 
@@ -1156,7 +1178,7 @@ void GameLogic::applyEntityUpdates() {
 
 void GameLogic::gameOver() {
     is_game_over = true;
-
+    game_timer = 0.f;
     for (auto& [sessionID, player] : players) {
         std::string name;
 
