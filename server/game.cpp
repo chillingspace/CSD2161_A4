@@ -17,6 +17,7 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 #include "game.h"
 #include <stdexcept>
 #include <random>
+#include <fstream>
 
 #ifndef VERBOSE_LOGGING
 #define VERBOSE_LOGGING
@@ -263,7 +264,6 @@ void Game::updateGame() {
 			gameRunning = false;
 			{
 				std::lock_guard<std::mutex> lock(data_mutex);
-				data.reset();
 			}
 			{
 				std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
@@ -276,7 +276,6 @@ void Game::updateGame() {
 			gameRunning = false;
 			{
 				std::lock_guard<std::mutex> lock(data_mutex);
-				data.reset();
 			}
 			{
 				std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
@@ -307,12 +306,89 @@ void Game::updateGame() {
 
 		// get all time highest scores from file
 		{
+			std::ifstream ifs{ highscore_file };
 
+			if (!ifs.is_open()) {
+				//std::lock_guard<std::mutex> coutlock(Server::getInstance()._stdoutMutex);
+				//std::cerr << "Cant open highscore file for reading " << highscore_file << std::endl;
+			}
+
+			for (int i{}; i < NUM_HIGHSCORES && !ifs.eof(); i++) {
+				Highscore hs;
+				if (!std::getline(ifs, hs.playername)) break;
+				ifs >> hs.score;
+				ifs.ignore();	// ignore newline
+				std::getline(ifs, hs.datestring);
+
+				highscores.push_back(hs);		// will be ordered from greatest to smallest
+			}
+		}
+
+		// modify highscores if user made it onto all time high scores
+		{
+			for (auto it = highscores.begin(); it != highscores.end(); ++it) {
+				if (winner_sid_score.second > it->score) {
+					Highscore hs;
+					{
+						std::lock_guard<std::mutex> dlock(data_mutex);
+						auto dsit = std::find_if(data.spaceships.begin(), data.spaceships.end(), [&winner_sid_score](const Spaceship& s) {
+							return s.sid == winner_sid_score.first;
+							}
+						);
+						if (dsit == data.spaceships.end()) {
+							//std::cerr << "winner spaceship not found" << std::endl;
+						}
+						else {
+							hs.playername = dsit->name;
+						}
+					}
+					hs.score = winner_sid_score.second;
+					hs.datestring = Server::getCurrentDateString();
+					highscores.insert(it, hs);
+
+					if (highscores.size() > NUM_HIGHSCORES) {
+						highscores.pop_back();			// remove lowest score to maintain top 5 highscores
+					}
+					break;
+				}
+			}
+
+			if (highscores.size() == 0) {
+				Highscore hs;
+				{
+					std::lock_guard<std::mutex> dlock(data_mutex);
+					auto dsit = std::find_if(data.spaceships.begin(), data.spaceships.end(), [&winner_sid_score](const Spaceship& s) {
+						return s.sid == winner_sid_score.first;
+						}
+					);
+					if (dsit == data.spaceships.end()) {
+						//std::cerr << "winner spaceship not found" << std::endl;
+					}
+					else {
+						hs.playername = dsit->name;
+					}
+				}
+				hs.score = winner_sid_score.second;
+				hs.datestring = Server::getCurrentDateString();
+				highscores.push_back(hs);
+			}
 		}
 
 		std::vector<char> ebuf;
-		ebuf.push_back(Server::END_GAME);
-		ebuf.push_back(winner_sid_score.first);
+		ebuf.push_back(Server::END_GAME);			// cmd
+		ebuf.push_back(winner_sid_score.first);		// winner sid
+		ebuf.push_back(winner_sid_score.second);	// winner score
+
+		// populate highscores
+		ebuf.push_back((char)highscores.size());		// num highscores
+
+		for (int i{}; i < (int)highscores.size(); i++) {
+			const Highscore& hs = highscores[i];
+			ebuf.push_back((char)hs.score);				// highscore
+			ebuf.push_back((char)hs.playername.size());	// playername length
+			ebuf.insert(ebuf.end(), hs.playername.begin(), hs.playername.end());	// playername
+		}
+
 
 		auto reliable_bc = [this, ebuf]() {
 			std::chrono::duration<float> elapsed;
@@ -389,10 +465,25 @@ void Game::updateGame() {
 			std::lock_guard<std::mutex> tplock(Server::threadpool_mutex);
 			Server::threadpool.push_back(std::async(std::launch::async, reliable_bc));
 		}
+
+		// update highscore file
 		{
-			std::lock_guard<std::mutex> lock(data_mutex);
-			prevGameRunning = gameRunning;
+			std::ofstream ofs{ highscore_file };
+
+			if (!ofs.is_open()) {
+				std::lock_guard<std::mutex> coutlock(Server::getInstance()._stdoutMutex);
+				std::cerr << "Cant open highscore file for writing " << highscore_file << std::endl;
+			}
+
+			for (const Highscore& hs : highscores) {
+				ofs
+					<< hs.playername << "\n"
+					<< hs.score << "\n"
+					<< hs.datestring << "\n";
+			}
 		}
+
+		prevGameRunning = gameRunning;
 	}
 }
 

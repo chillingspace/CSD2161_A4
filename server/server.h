@@ -216,6 +216,10 @@ public:
 	static std::mutex threadpool_mutex;
 
 	static void threadpoolManager();
+
+
+
+	static std::string getCurrentDateString();
 };
 
 
