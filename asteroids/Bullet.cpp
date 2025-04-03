@@ -2,7 +2,7 @@
 #include "GameLogic.h"
 #include "Player.h"
 
-Bullet::Bullet() : Entity(sf::Vector2f(0.f, 0.f), 0), shape(1.f), direction(sf::Vector2f(0.f, 0.f)), lifetime(BULLET_LIFETIME), owner(nullptr), sid(0) {
+Bullet::Bullet() : Entity(sf::Vector2f(0.f, 0.f), 0), shape(1.f), direction(sf::Vector2f(0.f, 0.f)), lifetime(BULLET_LIFETIME), player_color(sf::Color(255,255,255,255)), sid(0) {
    
 };
 
@@ -12,11 +12,11 @@ Bullet::Bullet(const Bullet& bullet)
     direction(bullet.direction),   // Copy the direction
     lifetime(bullet.lifetime),     // Copy lifetime
     sid(bullet.sid),               // Copy the SID
-    owner(bullet.owner)            // Copy the owner pointer
+    player_color(bullet.player_color)            // Copy the owner pointer
 {}
 
-Bullet::Bullet(sf::Vector2f pos, sf::Vector2f dir, Player* owner, uint8_t sid) : shape(1.f), direction(dir), Entity(pos, 0.f), lifetime(BULLET_LIFETIME), owner(owner), sid(sid) {
-    shape.setFillColor(owner->player_color);
+Bullet::Bullet(sf::Vector2f pos, sf::Vector2f dir, uint8_t sid) :Entity(pos, 0.f), shape(1.f), direction(dir),  lifetime(BULLET_LIFETIME), player_color(sf::Color(255, 255, 255, 255)), sid(sid) {
+
 }
 
 // TO BE MOVED TO SERVER
@@ -53,6 +53,11 @@ void Bullet::update(float delta_time)
 void Bullet::render(sf::RenderWindow& window)
 {
     shape.setPosition(position);
-    shape.setRadius(10.f);
+    shape.setRadius(4.f);
     window.draw(shape);
-};
+}
+void Bullet::setColor(sf::Color color)
+{
+    shape.setFillColor(color);
+}
+;

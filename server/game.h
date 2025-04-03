@@ -31,7 +31,7 @@ public:
 	static constexpr int WINDOW_HEIGHT = 900;
 
 	static constexpr int NUM_START_LIVES = 3;
-	static constexpr float BULLET_RADIUS = 10.f;
+	static constexpr float BULLET_RADIUS = 4.f;
 	static constexpr float SPACESHIP_RADIUS = 20.f;
 	
 	static constexpr int GAME_DURATION_S = 60;

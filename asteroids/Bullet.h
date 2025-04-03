@@ -16,16 +16,18 @@ private:
 public:
     uint8_t sid;
 
-    Player* owner;
+    sf::Color player_color;
 
     Bullet();
 
     Bullet(const Bullet& bullet);
 
-    Bullet(sf::Vector2f pos, sf::Vector2f dir, Player* owner, uint8_t sid);
+    Bullet(sf::Vector2f pos, sf::Vector2f dir, uint8_t sid);
 
     void update(float delta_time) override;
 
     void render(sf::RenderWindow& window) override;
+
+    void setColor(sf::Color color);
 };
 

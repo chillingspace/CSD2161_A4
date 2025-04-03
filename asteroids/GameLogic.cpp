@@ -11,7 +11,7 @@
 #include <unordered_set>
 #pragma comment(lib, "ws2_32.lib")  // Link Winsock library
 
-#define LOCALHOST_DEV       // for developing on 1 machine
+#define LOCALHOST_DEV  // for developing on 1 machine
 
 
 std::string playername;
@@ -228,9 +228,12 @@ void listenForBroadcast() {
                     for (int i{}; i < buffer[1]; i++) {     // iterate through num players
                         int sid = buffer[offset++];
                         int playernamesize = buffer[offset++];
+                        std::string playerName;
                         for (int j{}; j < playernamesize; j++) {    // iterate through num chars in player name
-                            playersNames[sid] = buffer[offset+j];
+                            playerName += buffer[offset + j];
                         }
+                        playersNames[sid] = playerName;
+
                         offset += playernamesize;
                     }
 
@@ -295,7 +298,7 @@ void listenForBroadcast() {
                         offset += 4;
                         b.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                         offset += 4;
-
+                        b.setColor(player_colors[b.sid]);
                         updatedBullets.push_back(b);
                         updatedEntities = true;
                         //std::cout << "Bullet Owner SID: " << b.sid
@@ -338,11 +341,29 @@ void listenForBroadcast() {
                     break;
 
                 case END_GAME:
-                    std::cout << "Received END_GAME signal.\n";
+
+                    int offset = 1;
+                    uint8_t winner_id = buffer[offset++];
+                    uint8_t winner_score = buffer[offset++];
+                    uint8_t num_high_scores = buffer[offset++];
+
+                    for (int i = 0; i < num_high_scores; i++) {
+                        int score = buffer[offset++];
+                        int name_length = buffer[offset++];
+
+                        std::string name;
+                        for (int j = 0; j < name_length; ++j) {
+                            name.push_back(buffer[offset + j]);
+                        }
+                        offset += name_length;
+
+                        // Add to the leaderboard
+                        Global::addToLeaderboard(leaderboard, score, name);
+                    }
+
                     GameLogic::gameOver();
-
+                    // Send ACK
                     send_buffer = { ACK_END_GAME };
-
                     sendData(send_buffer);
                     break;
 
@@ -548,7 +569,7 @@ void GameLogic::init() {
     if (!success) {
         exit(1);
     }
-    Global::addToLeaderboard(leaderboard, 1200, "Player 1");
+
     startNetworkThread();  // Start receiving data
 
     // Score Init
@@ -618,9 +639,9 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
             //entities.clear();
      
             // Test player
-            Player* new_player = new Player(current_session_id + 1, player_colors[current_session_id + 1], sf::Vector2f(500.f, 400.f), 30.f);
-            players[current_session_id + 1] = new_player; // Store in map
-            entities.push_back(new_player);
+            //Player* new_player = new Player(current_session_id + 1, player_colors[current_session_id + 1], sf::Vector2f(500.f, 400.f), 30.f);
+            //players[current_session_id + 1] = new_player; // Store in map
+            //entities.push_back(new_player);
 
             std::cout << "Sending REQ_START_GAME" << std::endl;
             std::vector<char> conn_buffer = { REQ_START_GAME }; 
@@ -787,53 +808,55 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
                 sendData(buffer);
             }
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && window.hasFocus()) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
                 static auto last_bullet_fired = std::chrono::high_resolution_clock::now();
                 auto now = std::chrono::high_resolution_clock::now();
 
-                if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_bullet_fired).count() >= SHOT_DELAY) {
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_bullet_fired).count();
+                std::cout << "Elapsed Time: " << elapsed << "ms\n";  // Debug log
+
+                if (elapsed >= SHOT_DELAY) {
+                    if (players.find(current_session_id) == players.end()) {
+                        std::cerr << "Error: Player not found! (ID: " << current_session_id << ")\n";
+                        return;
+                    }
 
                     useReliableSender = true;
                     last_bullet_fired = now;
 
                     float radians = players[current_session_id]->angle * (M_PI / 180.f);
 
-                    buffer.push_back(NEW_BULLET);  // Packet type
-                    buffer.push_back(static_cast<char>(current_session_id));  // Session IDm
+                    buffer.clear();  // Ensure buffer is clean
+                    buffer.push_back(NEW_BULLET);
+                    buffer.push_back(static_cast<char>(current_session_id));
 
-                    // sequence number (4 bytes)
+                    // Add sequence number
                     buffer.push_back((seq >> 24) & 0xff);
                     buffer.push_back((seq >> 16) & 0xff);
                     buffer.push_back((seq >> 8) & 0xff);
                     buffer.push_back((seq >> 0) & 0xff);
                     ++seq;
 
-                    // Ensure player exists
-                    if (players.find(current_session_id) == players.end()) {
-                        std::cerr << "Error: Player not found!" << std::endl;
-                        return;
-                    }
-
                     Player* player = players[current_session_id];
 
-                    // **Calculate bullet properties**
-                    //static constexpr float bulletSpeed = 500.0f;
-
-                    // Bullet position (starts at spaceship position)
-                    std::vector<char> bytes = Global::t_to_bytes(player->position.x);
+                    // Add position
+                    auto bytes = Global::t_to_bytes(player->position.x);
                     buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                     bytes = Global::t_to_bytes(player->position.y);
                     buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                    // Bullet velocity (shoots in the direction of rotation)
+                    // Add bullet velocity
                     bytes = Global::t_to_bytes(cos(radians) * BULLET_SPEED);
                     buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                     bytes = Global::t_to_bytes(sin(radians) * BULLET_SPEED);
                     buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                    std::cout << "Bullet fired!\n";
                 }
             }
+
 
             auto reliableSender = [buffer]() {
                 int retries = 5;
@@ -1001,8 +1024,6 @@ void GameLogic::gameOver() {
             name = "Player " + std::to_string(sessionID);
 
         }
-        std::cout << name << std::endl;
-        Global::addToLeaderboard(leaderboard, player->score, name);
     }
 
 }
