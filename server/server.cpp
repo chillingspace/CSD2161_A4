@@ -23,7 +23,7 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 
 //#define VERBOSE_LOGGING
 #define JS_DEBUG
-#define LOCALHOST_DEV
+//#define LOCALHOST_DEV
 
 Server& Server::getInstance() {
 	static Server instance;
@@ -346,7 +346,7 @@ void Server::requestHandler() {
 
 			switch (cmd) {
 			case CONN_REQUEST: {
-				std::cout << "Connection Requested By Client" << std::endl;
+				//std::cout << "Connection Requested By Client" << std::endl;
 				static std::vector<char> sbuf(16);
 
 				int num_players{};
@@ -534,7 +534,7 @@ void Server::requestHandler() {
 					num_conns = (int)Game::getInstance().data.spaceships.size();
 				}
 
-				auto bc = [this, &buf, num_conns]() {  
+				auto bc = [this, buf, num_conns]() {  
 
 					int num_acks = 0;
 
@@ -542,6 +542,11 @@ void Server::requestHandler() {
 
 					// wait for all clients to ack
 					while (num_acks < num_conns) {
+						{
+							std::lock_guard<std::mutex> coutlock(_stdoutMutex);
+							std::cout << "Sending START_GAME " << buf.size() << " bytes" << std::endl;
+						}
+
 						auto curr = std::chrono::high_resolution_clock::now();
 
 						if (curr - start >= std::chrono::milliseconds(DISCONNECTION_TIMEOUT_DURATION_MS)) {
