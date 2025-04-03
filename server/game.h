@@ -21,6 +21,7 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 
 #include "server.h"
 
+
 class Game {
 private:
 	Game() = default;
@@ -137,6 +138,15 @@ public:
 
 	Data data;
 	std::mutex data_mutex;
+
+	static constexpr const char* highscore_file = "highscores.txt";
+	struct Highscore {
+		std::string playername;
+		int score;
+		std::string datestring;
+	};
+	std::deque<Highscore> highscores;
+	static constexpr int NUM_HIGHSCORES = 5;
 
 	/**
 	 * use on a separate thread.

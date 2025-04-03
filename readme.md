@@ -136,11 +136,17 @@ pos y - 4 bytes [float]
 ```cpp
 cmd - 1 byte
 winner session id - 1 byte
-all time high score 1 - 1 byte
-all time high score 2 - 1 byte
-all time high score 3 - 1 byte
-all time high score 4 - 1 byte
-all time high score 5 - 1 byte
+winner score - 1 byte
+
+num highscores - 1 byte
+
+// for top n of all time high scores
+all time high score - 1 byte
+playername length - 1 byte
+playername - n bytes
+
+date string length = 1 byte
+date string - n bytes
 ```
 
 ## ACK_END_GAME [CLIENT]
