@@ -180,6 +180,9 @@ void Game::updateGame() {
 				data.asteroids.push_back(na);
 			}
 
+			// to spawn new asteroids on asteroid destruction
+			std::vector<Asteroid> new_asteroids;
+
 			// check for collisions
 			for (auto a_it = data.asteroids.begin(); a_it != data.asteroids.end();) {
 				bool hasAsteroidCollided = false;
@@ -200,6 +203,22 @@ void Game::updateGame() {
 
 					b_it = data.bullets.erase(b_it);
 					hasAsteroidCollided = true;
+
+					if (!a_it->is_sub_asteroid) {
+						// spawn sub asteroids
+						Asteroid na;
+						na.is_sub_asteroid = true;
+						na.pos = a_it->pos;
+						na.vector = a_it->vector;
+						na.vector.x = -na.vector.x;
+						na.radius = a_it->radius / 2.f;
+						new_asteroids.push_back(na);
+
+						na.vector = a_it->vector;
+						na.vector.y = -na.vector.y;
+						new_asteroids.push_back(na);
+					}
+
 					break;
 				}
 
@@ -236,6 +255,8 @@ void Game::updateGame() {
 				}
 			}
 
+			
+			data.asteroids.insert(data.asteroids.end(), new_asteroids.begin(), new_asteroids.end());
 
 
 			// update last updated time
