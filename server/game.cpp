@@ -423,6 +423,7 @@ void Game::updateGame() {
 			ebuf.push_back((char)hs.score);				// highscore
 			ebuf.push_back((char)hs.playername.size());	// playername length
 			ebuf.insert(ebuf.end(), hs.playername.begin(), hs.playername.end());	// playername
+			ebuf.insert(ebuf.end(), hs.datestring.begin(), hs.datestring.end());	// highscore date
 		}
 
 

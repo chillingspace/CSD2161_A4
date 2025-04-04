@@ -468,11 +468,11 @@ void Server::requestHandler() {
 			}
 			case REQ_START_GAME: {
 
-				std::cout << "Received start game request." << std::endl;
-
 				if (Game::getInstance().gameRunning) {
 					break;
 				}
+
+				std::cout << "Received start game request." << std::endl;
 
 				std::vector<char> buf;
 				buf.reserve(100);
