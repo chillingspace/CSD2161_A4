@@ -251,6 +251,7 @@ void Game::updateGame() {
 		std::vector<char> sbuf;
 		sbuf.reserve(1 + dbytes.size()); // Avoids reallocations
 		sbuf.push_back(Server::ALL_ENTITIES);
+		sbuf.push_back(static_cast<int>(GAME_DURATION_S - std::chrono::duration_cast<std::chrono::seconds>(elapsed).count()));
 		sbuf.insert(sbuf.end(), dbytes.begin(), dbytes.end());
 
 #ifdef JS_DEBUG

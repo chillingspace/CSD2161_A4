@@ -112,6 +112,8 @@ asteroids will be sent from here for spawning
 ```cpp
 cmd - 1 byte
 
+time left in seconds - 1 byte
+
 num active spaceships - 1 byte
 
 // for n spaceships
