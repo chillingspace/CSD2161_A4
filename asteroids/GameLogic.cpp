@@ -213,9 +213,7 @@ void listenForUdpMessages() {
                     s.score = buffer[offset++];  // 1 byte for score (no need for memcpy)
                     s.player_color = player_colors[s.sid];
 
-                    if (s.lives_left == 0) {
-                        continue;
-                    }
+
 
                     updatedPlayers.push_back(s);
                     updatedEntities = true;
@@ -956,7 +954,7 @@ void GameLogic::applyEntityUpdates() {
 void GameLogic::gameOver() {
     is_game_over = true;
     game_timer = 0;
-    leaderboard.clear();
+
     for (auto& [sessionID, player] : players) {
         std::string name;
 
