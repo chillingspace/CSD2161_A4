@@ -681,10 +681,20 @@ void Server::requestHandler() {
 				nb.vector.y = btof(bytes);
 				idx += (int)sizeof(float);
 
-				{
-					std::lock_guard<std::mutex> dlock(Game::getInstance().data_mutex);
-					Game::getInstance().data.bullets.push_back(nb);
-				}
+				// overwrite bullet pos with spaceship pos for starting position
+				//{
+				//	std::lock_guard<std::mutex> dlock(Game::getInstance().data_mutex);
+				//	Game::getInstance().data.bullets.push_back(nb);
+
+				//	std::vector<Game::Spaceship>::iterator it = std::find_if(
+				//			Game::getInstance().data.spaceships.begin(),
+				//			Game::getInstance().data.spaceships.end(),
+				//			[sid](const Game::Spaceship& s) {
+				//				return s.sid == sid;
+				//			}
+				//		);
+				//	nb.pos = it->pos;
+				//}
 				break;
 			}
 			case KEEP_ALIVE: {
