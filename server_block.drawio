@@ -1,0 +1,118 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36" version="26.2.5">
+  <diagram name="Page-1" id="DlGkcuTrr3BZLeCVP4r9">
+    <mxGraphModel dx="1556" dy="850" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-1" target="buaxt82MWZ7Wa5LvOemT-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-1" value="Server starts" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-2" target="buaxt82MWZ7Wa5LvOemT-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-2" target="buaxt82MWZ7Wa5LvOemT-16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-2" target="buaxt82MWZ7Wa5LvOemT-21">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-2" value="Winsock intialization" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="130" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-4" target="buaxt82MWZ7Wa5LvOemT-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-4" value="Listener thread startup" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="170" y="240" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-2" target="buaxt82MWZ7Wa5LvOemT-6">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="380" y="220" as="sourcePoint" />
+            <mxPoint x="510" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-6" target="buaxt82MWZ7Wa5LvOemT-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-6" value="Threadpool manager thread" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="230" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-9" value="Listens to specified port for communication from clients and adds received data to queue" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="170" y="330" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-11" value="Keeps track and keeps threads that are out of scoped alive. Ensures that all threads terminate before main thread does.&lt;br&gt;&lt;br&gt;Use cases include reliable sender, an adhoc thread created to keep sending a packet until an ACK is received." style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="460" y="330" width="240" height="155" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-14" value="New thread" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="160" y="110" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-15" value="New thread" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="590" y="110" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-16" target="buaxt82MWZ7Wa5LvOemT-18">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-16" value="keep alive thread&amp;nbsp;" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="710" y="235" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-18" value="TImes and monitors the last keep alive packet sent from client, disconnects client if it has not responded in a while" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="710" y="345" width="120" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-20" value="New thread" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="740" y="110" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-24" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-21" target="buaxt82MWZ7Wa5LvOemT-23">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-21" value="Requestion listener thread startup" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="235" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-31" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-23" target="buaxt82MWZ7Wa5LvOemT-30">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-23" value="Monitors request queue for data received, and handles them" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="330" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-29" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-25" target="buaxt82MWZ7Wa5LvOemT-28">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-25" value="Game update thread" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="10" y="240" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-26" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" target="buaxt82MWZ7Wa5LvOemT-25">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="230" y="160" as="sourcePoint" />
+            <mxPoint x="450" y="410" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="70" y="160" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-35" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="buaxt82MWZ7Wa5LvOemT-28" target="buaxt82MWZ7Wa5LvOemT-34">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-28" value="Updates game while game is running" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="10" y="330" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-30" value="Send stop signal to all running worker threads, wait for them to terminate before ending main thread execution." style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="570" width="120" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-32" value="New thread" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-33" value="If server stop signal is received" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="310" y="470" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-34" value="New adhoc thread created to stop and wait for acks. Tracked by threadpool manager" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="10" y="470" width="130" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="buaxt82MWZ7Wa5LvOemT-36" value="if reliable communication required" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="70" y="410" width="60" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
