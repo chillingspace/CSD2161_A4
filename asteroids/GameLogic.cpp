@@ -69,8 +69,6 @@ enum SERVER_MSGS {
 
 // Entities lists
 std::vector<Entity*> GameLogic::entities{};
-//std::list<Entity*> GameLogic::entitiesToDelete{};
-//std::list<Entity*> GameLogic::entitiesToAdd{};
 std::unordered_map<uint8_t, Player*> GameLogic::players{};
 std::unordered_map<int, std::string> playersNames;
 std::map<int, std::string, std::greater<int>> leaderboard;
@@ -136,10 +134,7 @@ void listenForUdpMessages() {
             {
                 send_buffer.clear();
                 send_buffer.push_back(ACK_CONN_REQUEST);
-                std::cout << "send_buffer: ";
-                for (char c : send_buffer) {
-                    std::cout << static_cast<int>(c) << " ";  // Print as integers
-                }
+
                 sendData(send_buffer);
                 break;
             }
@@ -148,8 +143,7 @@ void listenForUdpMessages() {
                 std::lock_guard<std::mutex> aclock(acked_seq_mutex);
                 acked_seq.insert(buffer[1] << 24 | buffer[2] << 16 | buffer[3] << 8 | buffer[4]);
             }
-                //std::cout << "Received ACK_SELF_SPACESHIP.\n";
-                
+
              break;
             case START_GAME:
             {
@@ -168,9 +162,20 @@ void listenForUdpMessages() {
                     for (int j{}; j < playernamesize; j++) {    // iterate through num chars in player name
                         playerName += buffer[offset + j];
                     }
-                    playersNames[sid] = playerName;
 
+                    playersNames[sid] = playerName;
                     offset += playernamesize;
+
+                    // Check if player already exists
+                    if (GameLogic::players.count(sid)) {
+                        std::cout << "Player with SID " << sid << " already exists." << std::endl;
+                        continue;  // Skip adding duplicate player
+                    }
+
+                    Player* new_player = new Player(sid, player_colors[sid],
+                        sf::Vector2f(SCREEN_WIDTH / 2.f, SCREEN_HEIGHT / 2.f), 0.f);
+                    GameLogic::players[sid] = new_player;  // Store in map
+                    GameLogic::entities.push_back(new_player);
                 }
 
                 // Example: Send ACK_START_GAME back to sender
@@ -179,7 +184,7 @@ void listenForUdpMessages() {
             }
             break;
             case ALL_ENTITIES: {
-                std::cout << "Received ALL_ENTITIES update (" << bytesReceived << " bytes).\n";
+                //std::cout << "Received ALL_ENTITIES update (" << bytesReceived << " bytes).\n";
 
                 if (bytesReceived < 2) {
                     std::cerr << "Error: Packet too short for ALL_ENTITIES\n";
@@ -211,11 +216,11 @@ void listenForUdpMessages() {
 
                     updatedPlayers.push_back(s);
                     updatedEntities = true;
-                    std::cout << "Spaceship SID: " << static_cast<int>(s.sid)
-                        << " | Pos: (" << s.position.x << ", " << s.position.y << ")"
-                        << " | Angle : " << s.angle
-                        << " | Lives: " << (int)s.lives_left
-                        << " | Score: " << (int)s.score << "\n";
+                    //std::cout << "Spaceship SID: " << static_cast<int>(s.sid)
+                    //    << " | Pos: (" << s.position.x << ", " << s.position.y << ")"
+                    //    << " | Angle : " << s.angle
+                    //    << " | Lives: " << (int)s.lives_left
+                    //    << " | Score: " << (int)s.score << "\n";
                 }
 
                 int num_bullets = buffer[offset++];
@@ -260,7 +265,7 @@ void listenForUdpMessages() {
                     offset += sizeof(float);
                     a.radius = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                     offset += sizeof(float);
-                    a.setRadius(a.radius);
+
                     updatedAsteroids.push_back(a);
                     updatedEntities = true;
                     //std::cout << "Asteroid Pos: (" << a.position.x << ", " << a.position.y << ") Radius = " << a.radius << "\n";
@@ -307,223 +312,6 @@ void listenForUdpMessages() {
     }
 
     //closesocket(udpSocket);
-}
-
-// Handles every thing that all players need to know
-void listenForBroadcast() {
-    if (udpBroadcastSocket == -1) {
-        udpBroadcastSocket = socket(AF_INET, SOCK_DGRAM, 0);
-        if (udpBroadcastSocket == INVALID_SOCKET) {
-            std::cerr << "Socket creation failed.\n";
-            WSACleanup();
-            exit(1);
-        }
-        std::cout << "UDP broadcast socket created successfully with port\n";
-
-        u_long mode = 1;
-        ioctlsocket(udpBroadcastSocket, FIONBIO, &mode);  // Set to non-blocking mode
-
-        serverBroadcastAddr.sin_family = AF_INET;
-        serverBroadcastAddr.sin_port = htons(udpBroadcastPort);
-        // 3001
-#ifdef LOCALHOST_DEV
-        const char* ip = "127.0.0.1";   // localhost addr
-        if (inet_pton(AF_INET, ip, &serverBroadcastAddr.sin_addr) <= 0) {
-            std::cerr << "Invalid address/Address not supported\n";
-        }
-#else
-        serverBroadcastAddr.sin_addr.s_addr = INADDR_ANY;       // !TODO: need to test on multiple devices
-#endif
-
-        if (bind(udpBroadcastSocket, (sockaddr*)&serverBroadcastAddr, sizeof(serverBroadcastAddr)) == SOCKET_ERROR) {
-            std::cerr << "Bind failed: " << WSAGetLastError() << "\n";
-            closesocket(udpBroadcastSocket);
-            WSACleanup();
-            exit(1);
-        }
-
-        std::cout << "UDP broadcast socket bind success" << std::endl;
-    }
-
-    std::cout << "Listening for UDP broadcasts on port " << serverBroadcastAddr.sin_port << "..." << std::endl;
-
-    while (isRunning) {
-        char buffer[1024];
-        sockaddr_in senderAddr;
-        int senderAddrSize = sizeof(senderAddr);
-
-        int bytesReceived = recvfrom(udpBroadcastSocket, buffer, sizeof(buffer) - 1, 0, (sockaddr*)&senderAddr, &senderAddrSize);
-        if (bytesReceived > 0) {
-
-            char cmd = buffer[0];
-            std::vector<char> send_buffer;
-
-            switch (cmd) {
-                case START_GAME:
-                {
-
-                    if (GameLogic::is_game_over) {
-                        GameLogic::start();
-                        std::cout << "starting" << std::endl;
-                    }
-
-
-                    int offset = 2;
-                    for (int i{}; i < buffer[1]; i++) {     // iterate through num players
-                        int sid = buffer[offset++];
-                        int playernamesize = buffer[offset++];
-                        std::string playerName;
-                        for (int j{}; j < playernamesize; j++) {    // iterate through num chars in player name
-                            playerName += buffer[offset + j];
-                        }
-                        playersNames[sid] = playerName;
-
-                        offset += playernamesize;
-                    }
-
-                    // Example: Send ACK_START_GAME back to sender
-                    send_buffer = { ACK_START_GAME };
-                    sendData(send_buffer);
-                }
-                break;
-                case ALL_ENTITIES: {
-                    std::cout << "Received ALL_ENTITIES update (" << bytesReceived << " bytes).\n";
-
-                    if (bytesReceived < 2) {
-                        std::cerr << "Error: Packet too short for ALL_ENTITIES\n";
-                        break;
-                    }
-
-                    int offset = 1;  // Skip packet type
-                    int num_spaceships = buffer[offset++];
-                    updatedPlayers.clear();
-
-                    // Read Player Data (15 bytes per spaceship)
-                    for (int i = 0; i < num_spaceships; i++) {
-                        if (offset + 15 > bytesReceived) {
-                            std::cerr << "Error: Not enough bytes for spaceship data\n";
-                            break;
-                        }
-
-                        Player s;
-                        s.sid = buffer[offset++];
-                        s.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
-                        offset += 4;
-                        s.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
-                        offset += 4;
-                        s.angle = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
-                        offset += 4;
-                        s.lives_left = buffer[offset++];  // 1 byte for lives_left (no need for memcpy)
-                        s.score = buffer[offset++];  // 1 byte for score (no need for memcpy)
-                        s.player_color = player_colors[s.sid];
-
-                        updatedPlayers.push_back(s);
-                        updatedEntities = true;
-                        std::cout << "Spaceship SID: " << static_cast<int>(s.sid)
-                            << " | Pos: (" << s.position.x << ", " << s.position.y << ")"
-                            << " | Angle : " << s.angle
-                            << " | Lives: " << (int)s.lives_left
-                            << " | Score: " << (int)s.score << "\n";
-                    }
-
-                    int num_bullets = buffer[offset++];
-
-                    updatedBullets.clear();
-                    // Read Bullet Data (9 bytes per bullet)
-                    for (int i = 0; i < num_bullets; i++) {
-                        if (offset + 9 > bytesReceived) {
-                            std::cerr << "Error: Not enough bytes for bullet data\n";
-                            break;
-                        }
-
-                        Bullet b;
-                        b.sid = buffer[offset++];  
-                        b.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
-                        offset += 4;
-                        b.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
-                        offset += 4;
-                        b.setColor(player_colors[b.sid]);
-                        updatedBullets.push_back(b);
-                        updatedEntities = true;
-                        //std::cout << "Bullet Owner SID: " << b.sid
-                        //    << " | Pos: (" << b.position.x << ", " << b.position.y << ")\n";
-                    }
-
-                    int num_asteroids = buffer[offset++];
-
-                    updatedAsteroids.clear();
-
-                    // Read Asteroid Data (8 bytes per asteroid)
-                    for (int i = 0; i < num_asteroids; i++) {
-                        if (offset + 8 > bytesReceived) {
-                            std::cerr << "Error: Not enough bytes for asteroid data\n";
-                            break;
-                        }
-
-                        Asteroid a;
-
-                        a.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
-                        offset += sizeof(float);
-                        a.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
-                        offset += sizeof(float);
-                        a.radius = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
-                        offset += sizeof(float);
-                        a.setRadius(a.radius);
-                        updatedAsteroids.push_back(a);
-                        updatedEntities = true;
-                        //std::cout << "Asteroid Pos: (" << a.position.x << ", " << a.position.y << ") Radius = " << a.radius << "\n";
-                    }
-
-
-                    break;
-                }
-
-
-                case ACK_NEW_BULLET:
-                    std::cout << "Received ACK_SELF_SPACESHIP.\n";
-                    // Handle spaceship acknowledgment
-                    break;
-
-                case END_GAME:
-
-                    int offset = 1;
-                    winner_id = buffer[offset++];
-                    winner_score = buffer[offset++];
-                    uint8_t num_high_scores = buffer[offset++];
-                    
-                    for (int i = 0; i < num_high_scores; i++) {
-                        int score = buffer[offset++];
-                        int name_length = buffer[offset++];
-
-                        std::string name;
-                        for (int j = 0; j < name_length; ++j) {
-                            name.push_back(buffer[offset + j]);
-                        }
-                        offset += name_length;
-
-                        // Add to the leaderboard
-                        Global::addToLeaderboard(leaderboard, score, name);
-                    }
-
-                    GameLogic::gameOver();
-                    // Send ACK
-                    send_buffer = { ACK_END_GAME };
-                    sendData(send_buffer);
-                    break;
-
-            }
-
-            buffer[bytesReceived] = '\0';
-            //std::cout << "Received broadcast from " << SERVER_IP << ": " << buffer << std::endl;
-
-        }
-        else if (bytesReceived == -1) {
-            //std::cout << "Bytes received == -1: " << WSAGetLastError() << std::endl;
-        }
-    }
-
-    //closesocket(udpBroadcastSocket);
-    //WSACleanup();
 }
 
 
@@ -645,9 +433,9 @@ bool initNetwork() {
                 std::cout << "Spawn Y: " << spawnPosY << std::endl;
                 std::cout << "Spawn Rotation: " << spawnRotation << " degrees" << std::endl;
 
-                Player* new_player = new Player(current_session_id, player_colors[current_session_id], sf::Vector2f(spawnPosX, spawnPosY), spawnRotation);
-                GameLogic::players[current_session_id] = new_player; // Store in map
-                GameLogic::entities.push_back(new_player);
+                Player* current_player = new Player(current_session_id, player_colors[current_session_id], sf::Vector2f(spawnPosX, spawnPosY), spawnRotation);
+                GameLogic::players[current_session_id] = current_player; // Store in map
+                GameLogic::entities.push_back(current_player);
 
                 // Send ACK_CONN_REQUEST
                 conn_buffer.clear();
@@ -694,9 +482,9 @@ void closeNetwork() {
         recvUdpThread.join();
     }
 
-    if (recvBroadcastThread.joinable()) {
-        recvBroadcastThread.join();
-    }
+    //if (recvBroadcastThread.joinable()) {
+    //    recvBroadcastThread.join();
+    //}
 
     if (keepAliveThread.joinable()) {
         keepAliveThread.join();
@@ -973,12 +761,12 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
                 sendData(buffer);
             }
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && window.hasFocus()) {
                 static auto last_bullet_fired = std::chrono::high_resolution_clock::now();
                 auto now = std::chrono::high_resolution_clock::now();
 
                 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_bullet_fired).count();
-                std::cout << "Elapsed Time: " << elapsed << "ms\n";  // Debug log
+                //std::cout << "Elapsed Time: " << elapsed << "ms\n";  // Debug log
 
                 if (elapsed >= SHOT_DELAY) {
                     if (players.find(current_session_id) == players.end()) {
@@ -994,7 +782,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                     buffer.clear();  // Ensure buffer is clean
                     buffer.push_back(NEW_BULLET);
                     buffer.push_back(static_cast<char>(current_session_id));
-
+                    std::cout << (int)current_session_id << std::endl;
                     // Add sequence number
                     buffer.push_back((seq >> 24) & 0xff);
                     buffer.push_back((seq >> 16) & 0xff);
@@ -1055,33 +843,13 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 Global::threadpool.push_back(std::async(std::launch::async, reliableSender));
             }
 
-            /*asteroid_spawn_time -= delta_time;*/
             applyEntityUpdates();
-
-            //for (auto& entity : entitiesToAdd) {
-            //    entities.push_back(entity);
-            //}
-            //entitiesToAdd.clear();
 
             for (size_t i = 0; i < entities.size(); i++) {
                 //entities[i]->update(delta_time);
                 entities[i]->render(window);
             }
 
-            //for (auto* entity : entitiesToDelete) {
-            //    auto it = std::find(entities.begin(), entities.end(), entity);
-            //    if (it != entities.end()) {
-            //        delete* it;       // Delete the object
-            //        entities.erase(it); // Remove from the list
-            //    }
-            //}
-            //entitiesToDelete.clear();
-
-           /* if (asteroid_spawn_time <= 0.f && entities.size() <= 12) {
-                entities.push_back(new Asteroid());
-                entities.push_back(new Asteroid());
-                asteroid_spawn_time = ASTEROID_SPAWN_TIME;
-            }*/
             // Draw scoreboard based on num of players
             int i = 0;
 
@@ -1107,8 +875,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
         }
     }
  
-
-
     // Show timer on screen
     if (!is_game_over) {
         sf::Text timer_text;
@@ -1125,7 +891,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 }
 void GameLogic::applyEntityUpdates() {
     // Update players
-// Update players
     if (updatedEntities) {
         for (const auto& updatedPlayer : updatedPlayers) {
             if (players.count(updatedPlayer.sid)) {
@@ -1166,13 +931,6 @@ void GameLogic::applyEntityUpdates() {
 
         updatedEntities = false;
     }
-
-
-
-    // Clear update buffers
-    //updatedPlayers.clear();
-    //updatedBullets.clear();
-    //updatedAsteroids.clear();
 }
 
 
@@ -1193,9 +951,3 @@ void GameLogic::gameOver() {
 
 }
 
-// TO BE MOVED TO SERVER
-Player* GameLogic::findPlayerBySession(uint8_t sessionID)
-{
-    auto it = players.find(sessionID);
-    return (it != players.end()) ? it->second : nullptr;
-}

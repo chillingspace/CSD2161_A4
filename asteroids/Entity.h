@@ -6,6 +6,8 @@ class Entity {
 private:
 
 public:
+    virtual ~Entity() {}
+
     Entity(sf::Vector2f pos, float angle) : position(pos), angle(angle) {};
     virtual void update(float delta_time) = 0;
     virtual void render(sf::RenderWindow& window) = 0;

@@ -676,7 +676,7 @@ void Server::requestHandler() {
 				sbuf.push_back(rbuf[5]);
 				sendData(sbuf, senderAddr);
 
-				int sid = rbuf[1];
+				SESSION_ID sid = rbuf[1];
 				int bid = rbuf[2] << 24 | rbuf[3] << 16 | rbuf[4] << 8 | rbuf[5];
 				int idx = 6;
 
@@ -698,6 +698,10 @@ void Server::requestHandler() {
 				}
 
 				Game::Bullet nb{};
+				nb.bullet_id = bid;  // bullet ID 
+				nb.sid = sid;        // spaceship ID
+				std::cout << "session id " << sid << std::endl;
+				std::cout << "bullet id " << bid << std::endl;
 
 				// pos x
 				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));

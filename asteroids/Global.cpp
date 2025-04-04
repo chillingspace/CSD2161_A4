@@ -95,3 +95,225 @@ void Global::threadpoolManager() {
 //    return distance < (a_radius + b_radius);
 //}
 
+// Handles every thing that all players need to know
+//void listenForBroadcast() {
+//    if (udpBroadcastSocket == -1) {
+//        udpBroadcastSocket = socket(AF_INET, SOCK_DGRAM, 0);
+//        if (udpBroadcastSocket == INVALID_SOCKET) {
+//            std::cerr << "Socket creation failed.\n";
+//            WSACleanup();
+//            exit(1);
+//        }
+//        std::cout << "UDP broadcast socket created successfully with port\n";
+//
+//        u_long mode = 1;
+//        ioctlsocket(udpBroadcastSocket, FIONBIO, &mode);  // Set to non-blocking mode
+//
+//        serverBroadcastAddr.sin_family = AF_INET;
+//        serverBroadcastAddr.sin_port = htons(udpBroadcastPort);
+//        // 3001
+//#ifdef LOCALHOST_DEV
+//        const char* ip = "127.0.0.1";   // localhost addr
+//        if (inet_pton(AF_INET, ip, &serverBroadcastAddr.sin_addr) <= 0) {
+//            std::cerr << "Invalid address/Address not supported\n";
+//        }
+//#else
+//        serverBroadcastAddr.sin_addr.s_addr = INADDR_ANY;       // !TODO: need to test on multiple devices
+//#endif
+//
+//        if (bind(udpBroadcastSocket, (sockaddr*)&serverBroadcastAddr, sizeof(serverBroadcastAddr)) == SOCKET_ERROR) {
+//            std::cerr << "Bind failed: " << WSAGetLastError() << "\n";
+//            closesocket(udpBroadcastSocket);
+//            WSACleanup();
+//            exit(1);
+//        }
+//
+//        std::cout << "UDP broadcast socket bind success" << std::endl;
+//    }
+//
+//    std::cout << "Listening for UDP broadcasts on port " << serverBroadcastAddr.sin_port << "..." << std::endl;
+//
+//    while (isRunning) {
+//        char buffer[1024];
+//        sockaddr_in senderAddr;
+//        int senderAddrSize = sizeof(senderAddr);
+//
+//        int bytesReceived = recvfrom(udpBroadcastSocket, buffer, sizeof(buffer) - 1, 0, (sockaddr*)&senderAddr, &senderAddrSize);
+//        if (bytesReceived > 0) {
+//
+//            char cmd = buffer[0];
+//            std::vector<char> send_buffer;
+//
+//            switch (cmd) {
+//                case START_GAME:
+//                {
+//
+//                    if (GameLogic::is_game_over) {
+//                        GameLogic::start();
+//                        std::cout << "starting" << std::endl;
+//                    }
+//
+//
+//                    int offset = 2;
+//                    for (int i{}; i < buffer[1]; i++) {     // iterate through num players
+//                        int sid = buffer[offset++];
+//                        int playernamesize = buffer[offset++];
+//                        std::string playerName;
+//                        for (int j{}; j < playernamesize; j++) {    // iterate through num chars in player name
+//                            playerName += buffer[offset + j];
+//                        }
+//                        playersNames[sid] = playerName;
+//
+//                        offset += playernamesize;
+//                    }
+//
+//                    // Example: Send ACK_START_GAME back to sender
+//                    send_buffer = { ACK_START_GAME };
+//                    sendData(send_buffer);
+//                }
+//                break;
+//                case ALL_ENTITIES: {
+//                    std::cout << "Received ALL_ENTITIES update (" << bytesReceived << " bytes).\n";
+//
+//                    if (bytesReceived < 2) {
+//                        std::cerr << "Error: Packet too short for ALL_ENTITIES\n";
+//                        break;
+//                    }
+//
+//                    int offset = 1;  // Skip packet type
+//                    int num_spaceships = buffer[offset++];
+//                    updatedPlayers.clear();
+//
+//                    // Read Player Data (15 bytes per spaceship)
+//                    for (int i = 0; i < num_spaceships; i++) {
+//                        if (offset + 15 > bytesReceived) {
+//                            std::cerr << "Error: Not enough bytes for spaceship data\n";
+//                            break;
+//                        }
+//
+//                        Player s;
+//                        s.sid = buffer[offset++];
+//                        s.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+//                        offset += 4;
+//                        s.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+//                        offset += 4;
+//                        s.angle = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+//                        offset += 4;
+//                        s.lives_left = buffer[offset++];  // 1 byte for lives_left (no need for memcpy)
+//                        s.score = buffer[offset++];  // 1 byte for score (no need for memcpy)
+//                        s.player_color = player_colors[s.sid];
+//
+//                        updatedPlayers.push_back(s);
+//                        updatedEntities = true;
+//                        std::cout << "Spaceship SID: " << static_cast<int>(s.sid)
+//                            << " | Pos: (" << s.position.x << ", " << s.position.y << ")"
+//                            << " | Angle : " << s.angle
+//                            << " | Lives: " << (int)s.lives_left
+//                            << " | Score: " << (int)s.score << "\n";
+//                    }
+//
+//                    int num_bullets = buffer[offset++];
+//
+//                    updatedBullets.clear();
+//                    // Read Bullet Data (9 bytes per bullet)
+//                    for (int i = 0; i < num_bullets; i++) {
+//                        if (offset + 9 > bytesReceived) {
+//                            std::cerr << "Error: Not enough bytes for bullet data\n";
+//                            break;
+//                        }
+//
+//                        Bullet b;
+//                        b.sid = buffer[offset++];  
+//                        b.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+//                        offset += 4;
+//                        b.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+//                        offset += 4;
+//                        b.setColor(player_colors[b.sid]);
+//                        updatedBullets.push_back(b);
+//                        updatedEntities = true;
+//                        //std::cout << "Bullet Owner SID: " << b.sid
+//                        //    << " | Pos: (" << b.position.x << ", " << b.position.y << ")\n";
+//                    }
+//
+//                    int num_asteroids = buffer[offset++];
+//
+//                    updatedAsteroids.clear();
+//
+//                    // Read Asteroid Data (8 bytes per asteroid)
+//                    for (int i = 0; i < num_asteroids; i++) {
+//                        if (offset + 8 > bytesReceived) {
+//                            std::cerr << "Error: Not enough bytes for asteroid data\n";
+//                            break;
+//                        }
+//
+//                        Asteroid a;
+//
+//                        a.position.x = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+//                        offset += sizeof(float);
+//                        a.position.y = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+//                        offset += sizeof(float);
+//                        a.radius = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
+//                        offset += sizeof(float);
+//                        a.setRadius(a.radius);
+//                        updatedAsteroids.push_back(a);
+//                        updatedEntities = true;
+//                        //std::cout << "Asteroid Pos: (" << a.position.x << ", " << a.position.y << ") Radius = " << a.radius << "\n";
+//                    }
+//
+//
+//                    break;
+//                }
+//
+//                case ACK_NEW_BULLET:
+//                    std::cout << "Received ACK_NEW_BULLET.\n";
+//                    // Handle spaceship acknowledgment
+//                    break;
+//
+//                case END_GAME:
+//
+//                    int offset = 1;
+//                    winner_id = buffer[offset++];
+//                    winner_score = buffer[offset++];
+//                    uint8_t num_high_scores = buffer[offset++];
+//                    
+//                    for (int i = 0; i < num_high_scores; i++) {
+//                        int score = buffer[offset++];
+//                        int name_length = buffer[offset++];
+//
+//                        std::string name;
+//                        for (int j = 0; j < name_length; ++j) {
+//                            name.push_back(buffer[offset + j]);
+//                        }
+//                        offset += name_length;
+//
+//                        // Add to the leaderboard
+//                        Global::addToLeaderboard(leaderboard, score, name);
+//                    }
+//
+//                    GameLogic::gameOver();
+//                    // Send ACK
+//                    send_buffer = { ACK_END_GAME };
+//                    sendData(send_buffer);
+//                    break;
+//
+//            }
+//
+//            buffer[bytesReceived] = '\0';
+//            //std::cout << "Received broadcast from " << SERVER_IP << ": " << buffer << std::endl;
+//
+//        }
+//        else if (bytesReceived == -1) {
+//            //std::cout << "Bytes received == -1: " << WSAGetLastError() << std::endl;
+//        }
+//    }
+//
+//    //closesocket(udpBroadcastSocket);
+//    //WSACleanup();
+//}
+
+//// TO BE MOVED TO SERVER
+//Player* GameLogic::findPlayerBySession(uint8_t sessionID)
+//{
+//    auto it = players.find(sessionID);
+//    return (it != players.end()) ? it->second : nullptr;
+//}

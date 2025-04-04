@@ -25,11 +25,24 @@ Asteroid::Asteroid() : Entity(sf::Vector2f(0, 0), 0.f) {
 // Asteroid copy constructor
 Asteroid::Asteroid(const Asteroid& asteroid)
     : Entity(asteroid),           // Copy the base class (Entity) data
-    shape(asteroid.shape),       // Copy the shape (for rendering)
     velocity(asteroid.velocity), // Copy the velocity
-    radius(asteroid.radius)          // Copy the size
+    radius(asteroid.radius)      // Copy the size
 {
+    // Initialize the shape after copying other properties
+    shape.setPointCount(8);  // 8-sided asteroid
+    for (int i = 0; i < 8; i++) {
+        float angle = (i / 8.f) * 360.f;
+        float rad = angle * (M_PI / 180.f);
+        shape.setPoint(i, sf::Vector2f(cos(rad) * radius, sin(rad) * radius));
+    }
+    shape.setFillColor(sf::Color::Transparent); // Make it look like an outline
+    shape.setOutlineColor(sf::Color::White);
+    shape.setOutlineThickness(2);
+
+    // Set the position after the shape is properly initialized
+    shape.setPosition(asteroid.shape.getPosition());
 }
+
 
 
 // TO BE MOVED TO SERVER
