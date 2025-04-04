@@ -423,7 +423,7 @@ void Server::requestHandler() {
 							std::lock_guard<std::mutex> conn_req_lock(ack_conn_request_clients_mutex);
 							if (ack_conn_request_clients.find(sid) != ack_conn_request_clients.end()) {
 								// client has acked.
-								ack_conn_request_clients.erase(sid);
+								//ack_conn_request_clients.erase(sid);		// no need.. since building this for just 4 clients max
 								break;
 							}
 						}
@@ -531,7 +531,7 @@ void Server::requestHandler() {
 								std::unordered_set<SESSION_ID> timeout_disconnect_clients;
 								std::lock_guard<std::mutex> clientslock(Game::getInstance().data_mutex);
 
-								// remove sessions that timed out
+								// remove sessions that timed out (disconnected)
 								for (auto it = Game::getInstance().data.spaceships.begin(); it != Game::getInstance().data.spaceships.end();) {
 									if (acked_clients.find(it->sid) != acked_clients.end()) {
 										++it;
@@ -540,6 +540,14 @@ void Server::requestHandler() {
 									it = Game::getInstance().data.spaceships.erase(it);
 								}
 								// num_conns = (int)Game::getInstance().data.spaceships.size();
+
+								for (auto it = udp_clients.begin(); it != udp_clients.end();) {
+									if (acked_clients.find(it->first) != acked_clients.end()) {
+										++it;
+										continue;
+									}
+									it = udp_clients.erase(it);
+								}
 							}
 
 							break;
