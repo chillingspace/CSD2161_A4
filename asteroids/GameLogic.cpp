@@ -95,6 +95,10 @@ std::vector<sf::Color> player_colors = {
     sf::Color::Magenta,
     sf::Color::Blue,
     sf::Color::Green,
+    sf::Color::Yellow,
+    sf::Color::Magenta,
+    sf::Color::Blue,
+    sf::Color::Green,
     sf::Color::Yellow
 };
 
