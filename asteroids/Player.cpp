@@ -114,6 +114,9 @@ void Player::update(float delta_time)
 
 void Player::render(sf::RenderWindow& window)
 {
+    if (lives_left == 0) {
+        return;
+    }
     //window.draw(vertices, sf::Transform().translate(position).rotate(angle));
     drawWithWraparound(window, vertices, position, angle);
 };

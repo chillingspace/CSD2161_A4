@@ -96,10 +96,24 @@ std::vector<sf::Color> player_colors = {
     sf::Color::Blue,
     sf::Color::Green,
     sf::Color::Yellow,
-    sf::Color::Magenta,
-    sf::Color::Blue,
-    sf::Color::Green,
-    sf::Color::Yellow
+    sf::Color(255, 165, 0), // Orange
+    sf::Color(255, 105, 180), // Hot Pink
+    sf::Color(0, 255, 255), // Aqua
+    sf::Color(255, 0, 255), // Fuchsia
+    sf::Color(255, 140, 0), // Dark Orange
+    sf::Color(0, 0, 255), // Navy Blue
+    sf::Color(128, 0, 128), // Purple
+    sf::Color(0, 255, 0), // Lime Green
+    sf::Color(255, 69, 0), // Red Orange
+    sf::Color(128, 128, 128), // Gray
+    sf::Color(255, 20, 147), // Deep Pink
+    sf::Color(240, 248, 255), // Alice Blue
+    sf::Color(32, 178, 170), // Light Sea Green
+    sf::Color(106, 90, 205), // Slate Blue
+    sf::Color(238, 130, 238), // Violet
+    sf::Color(255, 222, 173), // Navajo White
+    sf::Color(255, 99, 71), // Tomato
+    sf::Color(144, 238, 144) // Light Green
 };
 
 // Send player input
@@ -862,6 +876,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
             for (size_t i = 0; i < entities.size(); i++) {
                 //entities[i]->update(delta_time);
+
                 entities[i]->render(window);
             }
 
