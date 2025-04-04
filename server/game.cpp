@@ -242,8 +242,8 @@ void Game::updateGame() {
 #endif
 					
 					// shake camera on spaceship death
-					camera_shaking = true;
-					camera_shaking_start = std::chrono::high_resolution_clock::now();
+					//camera_shaking = true;
+					//camera_shaking_start = std::chrono::high_resolution_clock::now();
 
 					data.killSpaceship(s_it);
 					hasAsteroidCollided = true;
