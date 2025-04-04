@@ -681,6 +681,11 @@ void Server::requestHandler() {
 				nb.vector.y = btof(bytes);
 				idx += (int)sizeof(float);
 
+				{
+					std::lock_guard<std::mutex> dlock(Game::getInstance().data_mutex);
+					Game::getInstance().data.bullets.push_back(nb);
+				}
+
 				// overwrite bullet pos with spaceship pos for starting position
 				//{
 				//	std::lock_guard<std::mutex> dlock(Game::getInstance().data_mutex);

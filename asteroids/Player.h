@@ -6,7 +6,7 @@
 constexpr float TURN_SPEED = 270.f;
 constexpr float ACCELERATION = 250.f; // Adjust as needed
 constexpr float FRICTION = 0.95f;     // Lower = more drag
-
+constexpr float MAX_SPEED = 200.f;
 constexpr float SHOT_DELAY = 500.f;     // in milliseconds
 //constexpr float DEATH_TIMER = 3.f;                                  // na. handled by server
 //constexpr float INVULNERABILITY_TIME = 1.f;                       // not applicable. handled by server

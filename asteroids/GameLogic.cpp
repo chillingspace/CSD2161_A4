@@ -694,21 +694,27 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 }
 
                 Player* player = players[current_session_id];
+                auto& vel = players[current_session_id]->velocity;
+            
 
-                // Append position (x, y)
-                //std::vector<char> bytes = Global::t_to_bytes(player->position.x);
-                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+                vel.x += cos(radians) * (ACCELERATION * delta_time);
+                vel.y += sin(radians) * (ACCELERATION * delta_time);
 
-                //bytes = Global::t_to_bytes(player->position.y);
-                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+
+                float speed = std::sqrt(vel.x * vel.x + vel.y * vel.y);
+
+                // Clamp the velocity if the speed exceeds the max speed
+                if (speed > MAX_SPEED) {
+                    float scale = MAX_SPEED / speed;
+                    vel.x *= scale;
+                    vel.y *= scale;
+                }
 
                 // Append velocity (vector.x, vector.y)
-                //bytes = Global::t_to_bytes(players[current_session_id]->velocity.x + cos(radians) * (ACCELERATION * delta_time));
-                std::vector<char> bytes = Global::t_to_bytes(players[current_session_id]->velocity.x += cos(radians) * (ACCELERATION * delta_time));
+                std::vector<char> bytes = Global::t_to_bytes(vel.x);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                //bytes = Global::t_to_bytes(players[current_session_id]->velocity.y + sin(radians) * (ACCELERATION * delta_time));
-                bytes = Global::t_to_bytes(players[current_session_id]->velocity.y += sin(radians) * (ACCELERATION * delta_time));
+                bytes = Global::t_to_bytes(vel.y);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append rotation
@@ -734,13 +740,12 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
                 Player* player = players[current_session_id];
                 auto& vel = players[current_session_id]->velocity;
-                const float MAX_SPEED = 20.f; // or whatever value fits your game
 
-                vel.x += cos(radians) * (ACCELERATION * delta_time);
-                vel.y += sin(radians) * (ACCELERATION * delta_time);
+                vel.x -= cos(radians) * (ACCELERATION * delta_time);
+                vel.y -= sin(radians) * (ACCELERATION * delta_time);
 
 
-                float speed = std::pow(vel.x * vel.x + vel.y * vel.y, 2);
+                float speed = std::sqrt(vel.x * vel.x + vel.y * vel.y);
 
                 // Clamp the velocity if the speed exceeds the max speed
                 if (speed > MAX_SPEED) {
