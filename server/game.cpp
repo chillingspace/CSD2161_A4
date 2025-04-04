@@ -48,13 +48,6 @@ void Game::updateGame() {
 	static bool prevGameRunning = gameRunning;
 	prevGameRunning = gameRunning;
 
-	bool camera_shaking = false;
-	auto camera_shaking_start = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<float> camera_shaking_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(camera_shaking_start - camera_shaking_start);
-	static constexpr float CAMERA_SHAKING_DURATION = 1000.f;
-
-	Game::Data renderingData{};
-
 	while (gameRunning) {
 		const auto curr = std::chrono::high_resolution_clock::now();
 		const float dt = (float)(curr - prev_frame_time).count();
@@ -274,30 +267,6 @@ void Game::updateGame() {
 
 			// update sending buffer
 			dbytes = data.toBytes();
-
-			// update rendering data
-			renderingData = data;
-		}
-
-		// update positions to create shaking effect
-		if (camera_shaking) {
-			camera_shaking_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
-			if (camera_shaking_elapsed.count() > CAMERA_SHAKING_DURATION) {
-				camera_shaking = false;
-				camera_shaking_elapsed = start - start;
-			}
-
-			for (Spaceship& s : renderingData.spaceships) {
-				s.pos.x += sin(camera_shaking_elapsed.count());
-			}
-
-			for (Asteroid& a : renderingData.asteroids) {
-				a.pos.x += sin(camera_shaking_elapsed.count());
-			}
-
-			for (Asteroid& b : renderingData.bullets) {
-				b.pos.x += sin(camera_shaking_elapsed.count());
-			}
 		}
 
 		// data update is done, send to clients
@@ -485,6 +454,10 @@ void Game::updateGame() {
 				}
 
 				//Server::getInstance().broadcastData(ebuf);
+				{
+					std::lock_guard<std::mutex> coutlock(Server::getInstance()._stdoutMutex);
+					std::cout << "Sending END_GAME" << std::endl;
+				}
 
 				{
 					std::lock_guard<std::mutex> udplock(Server::getInstance().udp_clients_mutex);
