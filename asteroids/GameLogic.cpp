@@ -876,7 +876,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                     name = "Player " + std::to_string(sessionID);
                 }
 
-                player_score_text.setPosition(sf::Vector2f(40.f, 40.f + (i * 80.f)));
+                player_score_text.setPosition(sf::Vector2f(40.f, 40.f + (i * 120.f)));
                 player_score_text.setString(
                     name +
                     "\nScore: " + std::to_string(player->score) +
