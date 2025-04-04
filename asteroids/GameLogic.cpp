@@ -133,15 +133,12 @@ std::vector<sf::Color> player_colors = {
     sf::Color(144, 238, 144) // Light Green
 };
 
-// Send player input
+// Send data to server
 void sendData(const std::vector<char>& buffer) {
     int sendResult = sendto(udpSocket, buffer.data(), static_cast<int>(buffer.size()), 0,
         (sockaddr*)&serverAddr, sizeof(serverAddr));
     if (sendResult == SOCKET_ERROR) {
         std::cerr << "Failed to send data: " << WSAGetLastError() << "\n";
-    }
-    else {
-        //std::cout << "Sending data" << std::endl;
     }
 }
 
@@ -151,7 +148,7 @@ void listenForUdpMessages() {
     sockaddr_in senderAddr;
     int senderAddrSize = sizeof(senderAddr);
 
-    std::cout << "Listening for UDP messages...\n";
+    std::cout << "Listening for messages...\n";
 
     while (isRunning) {
         int bytesReceived = recvfrom(udpSocket, buffer, MAX_PACKET_SIZE, 0,
@@ -183,7 +180,7 @@ void listenForUdpMessages() {
 
                 if (GameLogic::is_game_over) {
                     GameLogic::start();
-                    std::cout << "starting" << std::endl;
+
                 }
 
 
@@ -201,7 +198,7 @@ void listenForUdpMessages() {
 
                     // Check if player already exists
                     if (GameLogic::players.count(sid)) {
-                        std::cout << "Player with SID " << sid << " already exists." << std::endl;
+
                         continue;  // Skip adding duplicate player
                     }
 
@@ -404,6 +401,7 @@ bool initNetwork() {
             SERVER_PORT = std::stoi(portInput);
         }
         catch (const std::exception& e) {
+            UNREFERENCED_PARAMETER(e);
             std::cerr << "Invalid port number. Using default port 3001.\n";
             SERVER_PORT = 3001;
         }
@@ -425,7 +423,6 @@ bool initNetwork() {
         WSACleanup();
         exit(1);
     }
-    std::cout << "UDP socket created successfully.\n";
 
     u_long mode = 1;
     ioctlsocket(udpSocket, FIONBIO, &mode);  // Set to non-blocking mode
@@ -471,7 +468,6 @@ bool initNetwork() {
 
         if (recvLen > 0) {
             uint8_t serverMsg = buffer[0];
-            std::cout << "Receiving from server!" << serverMsg << std::endl;
 
             if (serverMsg == CONN_ACCEPTED) {
                 std::cout << "Connection accepted by server!\n";
@@ -558,7 +554,7 @@ void closeNetwork() {
 void GameLogic::init() {
     bool success = initNetwork();
     if (!success) {
-        return;
+        exit(1);
     }
 
     startNetworkThread();  // Start receiving data
@@ -632,7 +628,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
         // Wait for Enter key to restart
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter) && window.hasFocus()) {
 
-            std::cout << "Sending REQ_START_GAME" << std::endl;
             std::vector<char> conn_buffer = { REQ_START_GAME }; 
             sendData(conn_buffer);
 
@@ -647,8 +642,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
             bool useReliableSender = false;
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) && window.hasFocus()) {
-                //std::cout << "Rotating" << std::endl;
-
 
                 buffer.push_back(SELF_SPACESHIP);  // Packet type
                 buffer.push_back(static_cast<char>(current_session_id));  // Session ID
@@ -849,7 +842,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                     bytes = Global::t_to_bytes(sin(radians) * BULLET_SPEED);
                     buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                    std::cout << "Bullet fired!\n";
                 }
             }
 
