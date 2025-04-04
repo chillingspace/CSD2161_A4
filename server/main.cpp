@@ -21,6 +21,10 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 #define WIN32_LEAN_AND_MEAN
 #endif
 
+//#define _CRTDBG_MAP_ALLOC
+//#include <cstdlib>
+//#include <crtdbg.h>
+
 
 int main()
 {
@@ -61,6 +65,9 @@ int main()
 	s.cleanup();
 
 	WSACleanup();
+
+	//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
 
 	return 0;
 }
