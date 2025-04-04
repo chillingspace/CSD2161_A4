@@ -208,7 +208,7 @@ public:
 	void cleanup();
 
 
-	static constexpr int KEEP_ALIVE_TIMEOUT_MS = DISCONNECTION_TIMEOUT_DURATION_MS;
+	static constexpr int KEEP_ALIVE_TIMEOUT_MS = 5000;
 	void keepAliveChecker();
 
 
