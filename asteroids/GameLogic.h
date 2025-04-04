@@ -21,7 +21,7 @@ class GameLogic
 		//static std::list<Entity*> entitiesToAdd;
 		static std::unordered_map<uint8_t, Player*> players;
 		
-		static float game_timer;
+		static int game_timer;
 		static float asteroid_spawn_time;
 		static bool is_game_over;
 

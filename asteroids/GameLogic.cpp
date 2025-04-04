@@ -28,16 +28,12 @@ int SERVER_PORT;
 #endif
 
 std::thread recvUdpThread;
-std::thread recvBroadcastThread;
 std::thread keepAliveThread;
 
 SOCKET udpSocket;
 sockaddr_in serverAddr;
-SOCKET udpBroadcastSocket = -1;
-sockaddr_in serverBroadcastAddr;
 
 uint8_t current_session_id;
-uint16_t udpBroadcastPort; 
 
 bool isRunning = true;  // Used for network thread
 
@@ -80,7 +76,7 @@ std::vector<Asteroid> updatedAsteroids;
 bool updatedEntities;
 
 // Game conditions
-float GameLogic::game_timer;
+int GameLogic::game_timer;
 bool GameLogic::is_game_over;
 uint8_t winner_id;
 uint8_t winner_score;
@@ -193,6 +189,7 @@ void listenForUdpMessages() {
                 }
 
                 int offset = 1;  // Skip packet type
+                GameLogic::game_timer = buffer[offset++];
                 int num_spaceships = buffer[offset++];
                 updatedPlayers.clear();
 
@@ -413,11 +410,6 @@ bool initNetwork() {
                 // Session ID (1 byte)
                 current_session_id = buffer[offset++];
 
-                // Read UDP Broadcast Port (2 bytes, ensure correct endian conversion)
-                memcpy(&udpBroadcastPort, buffer + offset, sizeof(uint16_t));
-                udpBroadcastPort = ntohs(udpBroadcastPort); // Convert from network byte order if needed
-                offset += 2;
-
                 // Read Spawn X (4 bytes, float)
                 float spawnPosX;
                 spawnPosX = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
@@ -434,7 +426,6 @@ bool initNetwork() {
                 offset += sizeof(float);
 
                 std::cout << "Session ID: " << (int)current_session_id << std::endl;
-                std::cout << "UDP Broadcast Port: " << udpBroadcastPort << std::endl;
                 std::cout << "Spawn X: " << spawnPosX << std::endl;
                 std::cout << "Spawn Y: " << spawnPosY << std::endl;
                 std::cout << "Spawn Rotation: " << spawnRotation << " degrees" << std::endl;
@@ -539,19 +530,19 @@ void GameLogic::start() {
 
     // TO BE MOVED TO SERVER (COLOR DOES ISNT REQUIRED)
     {
-        game_timer = 60.f; // Game lasts for 60 seconds (adjust as needed)
+        game_timer = 0; // Game lasts for 60 seconds (adjust as needed)
     }
 }
 
 void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
-    // TO BE MOVED TO SERVER
-    if (!is_game_over) {
-        game_timer -= delta_time;
-        if (game_timer <= 0.f) {
-            gameOver(); 
-        }
-    }
+    //// TO BE MOVED TO SERVER
+    //if (!is_game_over) {
+    //    game_timer -= delta_time;
+    //    if (game_timer <= 0.f) {
+    //        gameOver(); 
+    //    }
+    //}
 
     window.clear();
     
@@ -742,21 +733,27 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 }
 
                 Player* player = players[current_session_id];
+                auto& vel = players[current_session_id]->velocity;
+                const float MAX_SPEED = 20.f; // or whatever value fits your game
 
-                // Append position (x, y)
-                //std::vector<char> bytes = Global::t_to_bytes(player->position.x);
-                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+                vel.x += cos(radians) * (ACCELERATION * delta_time);
+                vel.y += sin(radians) * (ACCELERATION * delta_time);
 
-                //bytes = Global::t_to_bytes(player->position.y);
-                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
+                float speed = std::pow(vel.x * vel.x + vel.y * vel.y, 2);
+
+                // Clamp the velocity if the speed exceeds the max speed
+                if (speed > MAX_SPEED) {
+                    float scale = MAX_SPEED / speed;
+                    vel.x *= scale;
+                    vel.y *= scale;
+                }
+                
                 // Append velocity (vector.x, vector.y)
-                //bytes = Global::t_to_bytes(players[current_session_id]->velocity.x - cos(radians) * (ACCELERATION * delta_time));
-                std::vector<char> bytes = Global::t_to_bytes(players[current_session_id]->velocity.x -= cos(radians) * (ACCELERATION * delta_time));
+                std::vector<char> bytes = Global::t_to_bytes(vel.x);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-                //bytes = Global::t_to_bytes(players[current_session_id]->velocity.y - sin(radians) * (ACCELERATION * delta_time));
-                bytes = Global::t_to_bytes(players[current_session_id]->velocity.y -= sin(radians) * (ACCELERATION * delta_time));
+                bytes = Global::t_to_bytes(vel.y);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
                 // Append rotation
@@ -953,7 +950,7 @@ void GameLogic::applyEntityUpdates() {
 
 void GameLogic::gameOver() {
     is_game_over = true;
-    game_timer = 0.f;
+    game_timer = 0;
     leaderboard.clear();
     for (auto& [sessionID, player] : players) {
         std::string name;
