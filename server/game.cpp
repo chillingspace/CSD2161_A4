@@ -20,7 +20,7 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 #include <fstream>
 
 #ifndef VERBOSE_LOGGING
-#define VERBOSE_LOGGING
+//#define VERBOSE_LOGGING
 #endif
 
 Game& Game::getInstance() {
@@ -301,10 +301,10 @@ void Game::updateGame() {
 			{
 				std::lock_guard<std::mutex> lock(data_mutex);
 			}
-			{
-				std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
-				std::cout << "Time is up, ending game.." << std::endl;
-			}
+			//{
+			//	std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
+			//	std::cout << "Time is up, ending game.." << std::endl;
+			//}
 		}
 
 		// check if all spaceships are dead(out of lives)
@@ -313,16 +313,16 @@ void Game::updateGame() {
 			{
 				std::lock_guard<std::mutex> lock(data_mutex);
 			}
-			{
-				std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
-				std::cout << "All players are dead or disconnected, ending game.." << std::endl;
-			}
+			//{
+			//	std::lock_guard<std::mutex> lock(Server::getInstance()._stdoutMutex);
+			//	std::cout << "All players are dead or disconnected, ending game.." << std::endl;
+			//}
 		}
 	}
 
 
 	if (prevGameRunning && !gameRunning) {
-		std::cout << "Game ended sending " << std::endl;
+		//std::cout << "Game ended sending " << std::endl;
 		// game ended, find winner sid
 		// !NOTE: draw conditions not handled
 		std::pair<int, int> winner_sid_score{ -1, -1 };
@@ -446,8 +446,8 @@ void Game::updateGame() {
 				}
 
 				if (num_acked == expected_acks) {
-					std::lock_guard<std::mutex> stdoutLock(Server::getInstance()._stdoutMutex);
-					std::cout << "All clients ACKed END_GAME command" << std::endl;
+					//std::lock_guard<std::mutex> stdoutLock(Server::getInstance()._stdoutMutex);
+					//std::cout << "All clients ACKed END_GAME command" << std::endl;
 					{
 						std::lock_guard<std::mutex> aegclock(Server::getInstance().ack_end_game_clients_mutex);
 						Server::getInstance().ack_end_game_clients.clear();
@@ -456,10 +456,10 @@ void Game::updateGame() {
 				}
 
 				//Server::getInstance().broadcastData(ebuf);
-				{
-					std::lock_guard<std::mutex> coutlock(Server::getInstance()._stdoutMutex);
-					std::cout << "Sending END_GAME" << std::endl;
-				}
+				//{
+				//	std::lock_guard<std::mutex> coutlock(Server::getInstance()._stdoutMutex);
+				//	std::cout << "Sending END_GAME" << std::endl;
+				//}
 
 				{
 					std::lock_guard<std::mutex> udplock(Server::getInstance().udp_clients_mutex);
@@ -473,10 +473,10 @@ void Game::updateGame() {
 				elapsed = std::chrono::high_resolution_clock::now() - start_bc_time;
 				if (elapsed.count() >= Server::DISCONNECTION_TIMEOUT_DURATION_MS / 1000.f) {
 					// disconnect clients that did not ack
-					{
-						std::lock_guard<std::mutex> stdoutLock(Server::getInstance()._stdoutMutex);
-						std::cout << num_acked << "/" << expected_acks << " ACKed END_GAME command. Disconnecting timed out clients." << std::endl;
-					}
+					//{
+					//	std::lock_guard<std::mutex> stdoutLock(Server::getInstance()._stdoutMutex);
+					//	std::cout << num_acked << "/" << expected_acks << " ACKed END_GAME command. Disconnecting timed out clients." << std::endl;
+					//}
 
 					std::unordered_set<SESSION_ID> acked;
 					{

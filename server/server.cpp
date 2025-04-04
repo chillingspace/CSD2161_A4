@@ -161,7 +161,7 @@ SOCKET Server::createUdpSocket(int port, bool broadcast) {
 	int result_port;
 	if (getsockname(udpSocket, (sockaddr*)&udpAddr, &addrLen) == 0) {
 		result_port = ntohs(udpAddr.sin_port); // Convert from network byte order
-		std::cout << "Assigned port: " << result_port << std::endl;
+		//std::cout << "Assigned port: " << result_port << std::endl;
 	}
 	else {
 		std::cerr << "getsockname() failed." << std::endl;
@@ -227,7 +227,7 @@ void Server::udpListener() {
 			}
 			{
 				std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
-				std::cout << "Client with SID " << sid << " acknowledged connection request." << std::endl;
+				//std::cout << "Client with SID " << sid << " acknowledged connection request." << std::endl;
 			}
 			break;
 		}
@@ -239,8 +239,8 @@ void Server::udpListener() {
 			}
 			{
 				std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
-				std::cout << "Client with SID " << sid << " acknowledged start game." << std::endl;
-				std::cout << "Current ack count: " << ack_start_game_clients.size() << std::endl;
+				//std::cout << "Client with SID " << sid << " acknowledged start game." << std::endl;
+				//std::cout << "Current ack count: " << ack_start_game_clients.size() << std::endl;
 
 			}
 			break;
@@ -259,7 +259,7 @@ void Server::udpListener() {
 			}
 			{
 				std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
-				std::cout << "Client with SID " << sid << " acknowledged end game." << std::endl;
+				//std::cout << "Client with SID " << sid << " acknowledged end game." << std::endl;
 			}
 			break;
 		}
@@ -314,7 +314,7 @@ void Server::requestHandler() {
 				if (num_players >= Game::MAX_PLAYERS || Game::getInstance().gameRunning) {
 					{
 						std::lock_guard<std::mutex> coutlock(_stdoutMutex);
-						std::cout << "Connection refused. " << (num_players >= Game::MAX_PLAYERS ? "Too many players." : "Game is running") << std::endl;
+						//std::cout << "Connection refused. " << (num_players >= Game::MAX_PLAYERS ? "Too many players." : "Game is running") << std::endl;
 					}
 
 					sbuf[0] = CONN_REJECTED;
@@ -454,7 +454,7 @@ void Server::requestHandler() {
 					}
 					{
 						std::lock_guard<std::mutex> stdoutlock(_stdoutMutex);
-						std::cout << "Connection accepted. Sent data to client. Client ACKed SID: " << sid << std::endl;
+						//std::cout << "Connection accepted. Sent data to client. Client ACKed SID: " << sid << std::endl;
 					}
 					};
 				//std::thread t(reliableSender);
@@ -472,7 +472,7 @@ void Server::requestHandler() {
 					break;
 				}
 
-				std::cout << "Received start game request." << std::endl;
+				//std::cout << "Received start game request." << std::endl;
 
 				std::vector<char> buf;
 				buf.reserve(100);
@@ -511,10 +511,10 @@ void Server::requestHandler() {
 
 					// wait for all clients to ack
 					while (num_acks < num_conns) {
-						{
-							std::lock_guard<std::mutex> coutlock(_stdoutMutex);
-							std::cout << "Sending START_GAME " << buf.size() << " bytes" << std::endl;
-						}
+						//{
+						//	std::lock_guard<std::mutex> coutlock(_stdoutMutex);
+						//	std::cout << "Sending START_GAME " << buf.size() << " bytes" << std::endl;
+						//}
 
 						auto curr = std::chrono::high_resolution_clock::now();
 
@@ -658,16 +658,16 @@ void Server::requestHandler() {
 					}
 				}
 
-				{
-					std::lock_guard<std::mutex> coutlock(_stdoutMutex);
-					std::cout << "Registering new bullet " << bid << std::endl;
-				}
+				//{
+				//	std::lock_guard<std::mutex> coutlock(_stdoutMutex);
+				//	std::cout << "Registering new bullet " << bid << std::endl;
+				//}
 
 				Game::Bullet nb{};
 				nb.bullet_id = bid;  // bullet ID 
 				nb.sid = sid;        // spaceship ID
-				std::cout << "session id " << sid << std::endl;
-				std::cout << "bullet id " << bid << std::endl;
+				//std::cout << "session id " << sid << std::endl;
+				//std::cout << "bullet id " << bid << std::endl;
 
 				// pos x
 				std::vector<char> bytes(rbuf.begin() + idx, rbuf.begin() + idx + sizeof(float));
