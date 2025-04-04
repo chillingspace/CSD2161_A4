@@ -30,52 +30,6 @@ Server& Server::getInstance() {
 	return instance;
 }
 
-/**
- * send data with udp.
- *
- * \param buffer
- * \param dest_addr
- * \return
- */
-//int Server::sendData(const std::vector<char>& buffer, SESSION_ID sid) {
-//	sockaddr_in* udp_addr_in = nullptr;
-//	{
-//		std::lock_guard<std::mutex> usersLock{ udp_clients_mutex };
-//
-//		if (udp_clients.find(sid) == udp_clients.end()) {
-//			//std::lock_guard<std::mutex> usersLock{ _stdoutMutex };		// potential deadlock
-//			//std::cerr << "Session ID not found" << std::endl;
-//			return SOCKET_ERROR;
-//		}
-//
-//		udp_addr_in = reinterpret_cast<sockaddr_in*>(&udp_clients.at(sid));
-//	}
-//
-//	if (udp_addr_in == nullptr) {
-//		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
-//		std::cerr << "udp_addr_in is nullptr" << std::endl;
-//		return SOCKET_ERROR;
-//	}
-//
-//	if (udp_socket == INVALID_SOCKET) {
-//		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
-//		std::cerr << "Invalid socket." << std::endl;
-//		return SOCKET_ERROR;
-//	}
-//
-//	int bytesSent = sendto(udp_socket, buffer.data(), (int)buffer.size(), 0, reinterpret_cast<sockaddr*>(&const_cast<sockaddr_in&>(*udp_addr_in)), sizeof(sockaddr_in));
-//	if (bytesSent == SOCKET_ERROR) {
-//		//std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
-//		char errorBuffer[256];
-//		strerror_s(errorBuffer, sizeof(errorBuffer), errno);
-//		//std::cerr << "sendto() failed: " << errorBuffer << std::endl;
-//
-//		int wsaError = WSAGetLastError();
-//		//std::cerr << "sendto() failed with wsa error: " << wsaError << std::endl;
-//	}
-//	return bytesSent;
-//}
-
 int Server::sendData(const std::vector<char>& buffer, sockaddr_in udp_addr_in) {
 	if (udp_socket == INVALID_SOCKET) {
 		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
@@ -96,6 +50,7 @@ int Server::sendData(const std::vector<char>& buffer, sockaddr_in udp_addr_in) {
 	return bytesSent;
 }
 
+#ifdef USING_BROADCAST
 int Server::broadcastData(const std::vector<char>& buffer) {
 	if (udp_socket_broadcast == INVALID_SOCKET) {
 		std::lock_guard<std::mutex> usersLock{ _stdoutMutex };
@@ -141,6 +96,7 @@ int Server::broadcastData(const std::vector<char>& buffer) {
 #endif
 	return bytesSent;
 }
+#endif
 
 int Server::getSessionId() {
 	return session_id++;
@@ -398,9 +354,11 @@ void Server::requestHandler() {
 				// session id
 				sbuf[buf_idx++] = sid;
 
+#ifdef USING_BROADCAST
 				// broadcast port
 				sbuf[buf_idx++] = (serverUdpPortBroadcast >> 8) & 0xff;
 				sbuf[buf_idx++] = serverUdpPortBroadcast & 0xff;
+#endif
 
 				// spawn locations (world pos)
 				constexpr float spawnX = 500.f;
@@ -756,7 +714,9 @@ int Server::init() {
 	udpPortString = "3001";
 	serverUdpPort = 3001;
 #endif
+#ifdef USING_BROADCAST
 	serverUdpPortBroadcast = serverUdpPort + 1;
+#endif
 
 
 	// -------------------------------------------------------------------------
@@ -823,7 +783,9 @@ int Server::init() {
 		std::cout << std::endl;
 		std::cout << "Server IP Address: " << serverIPAddr << std::endl;
 		std::cout << "Server UDP Port Number: " << serverUdpPort << std::endl;
+#ifdef USING_BROADCAST
 		std::cout << "Server UDP broadcast Port Number: " << serverUdpPortBroadcast << std::endl;
+#endif
 	}
 
 	// create UDP socket
@@ -837,6 +799,7 @@ int Server::init() {
 		return 4;
 	}
 
+#ifdef USING_BROADCAST
 	udp_socket_broadcast = createUdpSocket(serverUdpPortBroadcast, true);
 	if (udp_socket_broadcast == INVALID_SOCKET) {
 		closesocket(udp_socket_broadcast);
@@ -846,6 +809,7 @@ int Server::init() {
 		std::cerr << "Failed to create UDP Broadcast socket" << std::endl;
 		return 5;
 	}
+#endif
 
 	// set udp socket to non-blocking
 	u_long mode = 1;

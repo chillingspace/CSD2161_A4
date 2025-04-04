@@ -78,6 +78,10 @@ void Game::updateGame() {
 
 			// update spaceships
 			for (Spaceship& s : data.spaceships) {
+				if (s.lives_left == 0) {
+					continue;
+				}
+
 				s.pos += s.vector * dt;
 
 				// Wrap spaceship positions 
@@ -102,7 +106,7 @@ void Game::updateGame() {
 				Bullet& b = *it;
 
 				// remove bullets out of screen
-				if (b.pos.x > WINDOW_WIDTH || b.pos.x < -WINDOW_WIDTH || b.pos.y > WINDOW_HEIGHT || b.pos.y < -WINDOW_HEIGHT) {
+				if (b.pos.x > WINDOW_WIDTH || b.pos.x < 0 || b.pos.y > WINDOW_HEIGHT || b.pos.y < 0) {
 					it = data.bullets.erase(it);
 					continue;
 				}
@@ -116,18 +120,18 @@ void Game::updateGame() {
 				a.pos += a.vector * dt;
 
 				// wrap asteroid positions
-				if (a.pos.x < -WINDOW_WIDTH) {
-					a.pos.x = WINDOW_WIDTH;
+				if (a.pos.x < 0 - a.radius) {
+					a.pos.x = WINDOW_WIDTH + a.radius;
 				}
-				else if (a.pos.x > WINDOW_WIDTH) {
-					a.pos.x = -WINDOW_WIDTH;
+				else if (a.pos.x > WINDOW_WIDTH + a.radius) {
+					a.pos.x = 0 - a.radius;
 				}
 
-				if (a.pos.y < -WINDOW_HEIGHT) {
-					a.pos.y = WINDOW_HEIGHT;
+				if (a.pos.y < 0 - a.radius) {
+					a.pos.y = WINDOW_HEIGHT + a.radius;
 				}
-				else if (a.pos.y > WINDOW_HEIGHT) {
-					a.pos.y = -WINDOW_HEIGHT;
+				else if (a.pos.y > WINDOW_HEIGHT + a.radius) {
+					a.pos.y = 0 - a.radius;
 				}
 			}
 
@@ -176,6 +180,9 @@ void Game::updateGame() {
 				data.asteroids.push_back(na);
 			}
 
+			// to spawn new asteroids on asteroid destruction
+			std::vector<Asteroid> new_asteroids;
+
 			// check for collisions
 			for (auto a_it = data.asteroids.begin(); a_it != data.asteroids.end();) {
 				bool hasAsteroidCollided = false;
@@ -196,6 +203,22 @@ void Game::updateGame() {
 
 					b_it = data.bullets.erase(b_it);
 					hasAsteroidCollided = true;
+
+					if (!a_it->is_sub_asteroid) {
+						// spawn sub asteroids
+						Asteroid na;
+						na.is_sub_asteroid = true;
+						na.pos = a_it->pos;
+						na.vector = a_it->vector;
+						na.vector.x = -na.vector.x;
+						na.radius = a_it->radius / 2.f;
+						new_asteroids.push_back(na);
+
+						na.vector = a_it->vector;
+						na.vector.y = -na.vector.y;
+						new_asteroids.push_back(na);
+					}
+
 					break;
 				}
 
@@ -232,6 +255,8 @@ void Game::updateGame() {
 				}
 			}
 
+			
+			data.asteroids.insert(data.asteroids.end(), new_asteroids.begin(), new_asteroids.end());
 
 
 			// update last updated time
@@ -247,6 +272,7 @@ void Game::updateGame() {
 		std::vector<char> sbuf;
 		sbuf.reserve(1 + dbytes.size()); // Avoids reallocations
 		sbuf.push_back(Server::ALL_ENTITIES);
+		sbuf.push_back(static_cast<int>(GAME_DURATION_S - std::chrono::duration_cast<std::chrono::seconds>(elapsed).count()));
 		sbuf.insert(sbuf.end(), dbytes.begin(), dbytes.end());
 
 #ifdef JS_DEBUG

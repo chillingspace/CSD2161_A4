@@ -104,6 +104,7 @@ public:
 		vec2 pos{};
 		vec2 vector{};
 		float radius{};
+		bool is_sub_asteroid{};		// asteroid has been shot once and broken into 2 sub asteroids
 	};
 
 	struct Bullet : public Asteroid {
