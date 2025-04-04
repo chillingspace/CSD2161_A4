@@ -34,6 +34,8 @@ class GameLogic
 		static bool checkCollision(Entity* a, Entity* b);
 
 		static void gameOver();
+
+		static void cleanUp();
 };
 
 void closeNetwork();
