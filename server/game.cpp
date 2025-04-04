@@ -120,18 +120,18 @@ void Game::updateGame() {
 				a.pos += a.vector * dt;
 
 				// wrap asteroid positions
-				if (a.pos.x < -WINDOW_WIDTH) {
-					a.pos.x = WINDOW_WIDTH;
+				if (a.pos.x < 0 - a.radius) {
+					a.pos.x = WINDOW_WIDTH + a.radius;
 				}
-				else if (a.pos.x > WINDOW_WIDTH) {
-					a.pos.x = -WINDOW_WIDTH;
+				else if (a.pos.x > WINDOW_WIDTH + a.radius) {
+					a.pos.x = 0 - a.radius;
 				}
 
-				if (a.pos.y < -WINDOW_HEIGHT) {
-					a.pos.y = WINDOW_HEIGHT;
+				if (a.pos.y < 0 - a.radius) {
+					a.pos.y = WINDOW_HEIGHT + a.radius;
 				}
-				else if (a.pos.y > WINDOW_HEIGHT) {
-					a.pos.y = -WINDOW_HEIGHT;
+				else if (a.pos.y > WINDOW_HEIGHT + a.radius) {
+					a.pos.y = 0 - a.radius;
 				}
 			}
 
