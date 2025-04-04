@@ -14,7 +14,7 @@
 /*#define LOCALHOST_DEV*/  // for developing on 1 machine
 
 std::string playername;
-//
+
 //#define JS_DEBUG
 
 #ifndef JS_DEBUG
@@ -441,11 +441,6 @@ bool initNetwork() {
                 spawnRotation = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                 offset += sizeof(float);
 
-                std::cout << "Session ID: " << (int)current_session_id << std::endl;
-                std::cout << "Spawn X: " << spawnPosX << std::endl;
-                std::cout << "Spawn Y: " << spawnPosY << std::endl;
-                std::cout << "Spawn Rotation: " << spawnRotation << " degrees" << std::endl;
-
                 Player* current_player = new Player(current_session_id, player_colors[current_session_id], sf::Vector2f(spawnPosX, spawnPosY), spawnRotation);
                 GameLogic::players[current_session_id] = current_player; // Store in map
                 GameLogic::entities.push_back(current_player);
@@ -483,7 +478,6 @@ void startNetworkThread() {
         }
         }
     );
-    std::cout << "Started network threads.\n";
 }
 
 
@@ -781,8 +775,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 bytes = Global::t_to_bytes(players[current_session_id]->angle);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
 
-
-
                 sendData(buffer);
             }
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && window.hasFocus()) {
@@ -988,3 +980,11 @@ void GameLogic::gameOver() {
 
 }
 
+void GameLogic::cleanUp() {
+    for (Entity* e : entities) {
+        delete e;
+    }
+    entities.clear();
+
+    players.clear();  // Players are also in `entities`, so we don't delete again
+}
