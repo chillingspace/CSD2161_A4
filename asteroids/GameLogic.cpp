@@ -134,6 +134,7 @@ void listenForUdpMessages() {
             {
                 send_buffer.clear();
                 send_buffer.push_back(ACK_CONN_REQUEST);
+                send_buffer.push_back(current_session_id);
 
                 sendData(send_buffer);
                 break;
