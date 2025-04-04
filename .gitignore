@@ -21,4 +21,4 @@ Release
 venv/
 client/files/*
 server/files/vid3.mp4
-highscores.txt/
+server/highscores.txt
