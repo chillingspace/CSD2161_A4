@@ -78,6 +78,10 @@ void Game::updateGame() {
 
 			// update spaceships
 			for (Spaceship& s : data.spaceships) {
+				if (s.lives_left == 0) {
+					continue;
+				}
+
 				s.pos += s.vector * dt;
 
 				// Wrap spaceship positions 
