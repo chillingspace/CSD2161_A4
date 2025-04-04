@@ -28,12 +28,6 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 
 int main()
 {
-<<<<<<< Updated upstream
-    // Create a window with 1600x900 resolution
-    sf::RenderWindow window(sf::VideoMode(SCREEN_WIDTH, SCREEN_HEIGHT), "Asteroids", sf::Style::Close | sf::Style::Titlebar);
-    sf::Clock clock;
-    std::cout << "Welcome to Spaceships!\n";
-=======
 	//#ifdef _DEBUG
 	//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 	//#define new new(_NORMAL_BLOCK, __FILE__, __LINE__)
@@ -45,7 +39,6 @@ int main()
 		sf::RenderWindow window(sf::VideoMode(SCREEN_WIDTH, SCREEN_HEIGHT), "Asteroids", sf::Style::Close | sf::Style::Titlebar);
 		sf::Clock clock;
 		std::cout << "SFML Window Created Successfully!\n";
->>>>>>> Stashed changes
 
 		GameLogic::init();
 
@@ -72,14 +65,9 @@ int main()
 	GameLogic::cleanUp();
 	Global::threadpool_running = false;
 	t.join();
-
-<<<<<<< Updated upstream
-    return 0;
-=======
 	std::cout << "SFML Window Closed.\n";
 
 	//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 	return 0;
->>>>>>> Stashed changes
 
 }
