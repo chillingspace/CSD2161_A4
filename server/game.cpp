@@ -106,7 +106,7 @@ void Game::updateGame() {
 				Bullet& b = *it;
 
 				// remove bullets out of screen
-				if (b.pos.x > WINDOW_WIDTH || b.pos.x < 0H || b.pos.y > WINDOW_HEIGHT || b.pos.y < 0) {
+				if (b.pos.x > WINDOW_WIDTH || b.pos.x < 0 || b.pos.y > WINDOW_HEIGHT || b.pos.y < 0) {
 					it = data.bullets.erase(it);
 					continue;
 				}
