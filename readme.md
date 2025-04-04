@@ -16,12 +16,9 @@ cmd - 1 byte
 ```cpp
 cmd - 1 byte
 session id - 1 byte
-~~udp broadcast port - 2 bytes~~        // removed, not used
 spawn pos x - 4 bytes [float]
 spawn pos y - 4 bytes [float]
 spawn rotation degrees - 4 bytes [float]
-~~spawn lives - 1 byte~~ // removed spawn lives
-16 bytes total
 ```
 
 ## ACK_CONN_REQUEST [CLIENT]
