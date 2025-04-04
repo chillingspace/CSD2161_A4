@@ -1,3 +1,20 @@
+/* Start Header
+*****************************************************************/
+/*!
+\file GameLogic.h
+\author Sean Gwee, 2301326
+\par g.boonxuensean@digipen.edu
+\date 1 Apr 2025
+\brief
+This file implements the GameLogic headers
+Copyright (C) 2025 DigiPen Institute of Technology.
+Reproduction or disclosure of this file or its contents without the
+prior written consent of DigiPen Institute of Technology is prohibited.
+*/
+/* End Header
+*******************************************************************/
+
+
 #pragma once
 #include <vector>
 #include <list>
@@ -22,7 +39,6 @@ class GameLogic
 		static std::unordered_map<uint8_t, Player*> players;
 		
 		static int game_timer;
-		static float asteroid_spawn_time;
 		static bool is_game_over;
 
 		static int score;

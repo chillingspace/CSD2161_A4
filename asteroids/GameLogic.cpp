@@ -1,3 +1,20 @@
+/* Start Header
+*****************************************************************/
+/*!
+\file GameLogic.cpp
+\author Sean Gwee, 2301326
+\par g.boonxuensean@digipen.edu
+\date 1 Apr 2025
+\brief
+This file implements the game logic
+Copyright (C) 2025 DigiPen Institute of Technology.
+Reproduction or disclosure of this file or its contents without the
+prior written consent of DigiPen Institute of Technology is prohibited.
+*/
+/* End Header
+*******************************************************************/
+
+
 #include "GameLogic.h"
 #include "Asteroid.h"
 #include "Player.h"
@@ -9,6 +26,8 @@
 #include <thread>
 #include <chrono>
 #include <unordered_set>
+#include <fstream>
+#include <sstream>
 #pragma comment(lib, "ws2_32.lib")  // Link Winsock library
 
 /*#define LOCALHOST_DEV*/  // for developing on 1 machine
@@ -40,6 +59,7 @@ bool isRunning = true;  // Used for network thread
 int seq{};      // for packets that require ack
 std::unordered_set<int> acked_seq;      // acked sequence numbers, once processed, will be popped
 std::mutex acked_seq_mutex;
+std::mutex gameLogicMutex;
 
 static constexpr int MAX_PACKET_SIZE = 1000;
 
@@ -67,7 +87,7 @@ enum SERVER_MSGS {
 std::vector<Entity*> GameLogic::entities{};
 std::unordered_map<uint8_t, Player*> GameLogic::players{};
 std::unordered_map<int, std::string> playersNames;
-std::map<int, std::string, std::greater<int>> leaderboard;
+std::map<int, LeaderboardEntry, std::greater<int>> leaderboard;
 
 // Store the most recent entity updates in a global variable
 std::vector<Player> updatedPlayers;
@@ -80,9 +100,6 @@ int GameLogic::game_timer;
 bool GameLogic::is_game_over;
 uint8_t winner_id;
 uint8_t winner_score;
-
-// Asteroids conditions
-float GameLogic::asteroid_spawn_time;
 
 // Font and text
 sf::Font font;
@@ -118,7 +135,7 @@ std::vector<sf::Color> player_colors = {
 
 // Send player input
 void sendData(const std::vector<char>& buffer) {
-    int sendResult = sendto(udpSocket, buffer.data(), buffer.size(), 0,
+    int sendResult = sendto(udpSocket, buffer.data(), static_cast<int>(buffer.size()), 0,
         (sockaddr*)&serverAddr, sizeof(serverAddr));
     if (sendResult == SOCKET_ERROR) {
         std::cerr << "Failed to send data: " << WSAGetLastError() << "\n";
@@ -162,6 +179,7 @@ void listenForUdpMessages() {
              break;
             case START_GAME:
             {
+                std::lock_guard<std::mutex> lock(gameLogicMutex);
 
                 if (GameLogic::is_game_over) {
                     GameLogic::start();
@@ -199,7 +217,7 @@ void listenForUdpMessages() {
             }
             break;
             case ALL_ENTITIES: {
-                //std::cout << "Received ALL_ENTITIES update (" << bytesReceived << " bytes).\n";
+                std::lock_guard<std::mutex> lock(gameLogicMutex);
 
                 if (bytesReceived < 2) {
                     std::cerr << "Error: Packet too short for ALL_ENTITIES\n";
@@ -295,6 +313,7 @@ void listenForUdpMessages() {
             }
 
             case END_GAME:
+                std::lock_guard<std::mutex> lock(gameLogicMutex);
 
                 int offset = 1;
                 winner_id = buffer[offset++];
@@ -311,8 +330,16 @@ void listenForUdpMessages() {
                     }
                     offset += name_length;
 
+                    int date_length = buffer[offset++];              
+                    std::string date;
+                    for (int j = 0; j < date_length; ++j) {
+                        date.push_back(buffer[offset + j]);
+                    }
+                    offset += date_length;
+
                     // Add to the leaderboard
-                    Global::addToLeaderboard(leaderboard, score, name);
+                    LeaderboardEntry entry{ name, date };
+                    Global::addToLeaderboard(leaderboard, score, entry);
                 }
 
                 GameLogic::gameOver();
@@ -336,28 +363,56 @@ void listenForUdpMessages() {
 
 // Initialize UDP connection
 bool initNetwork() {
-    
-#ifndef JS_DEBUG
-    std::cout << "Enter Server IP Address: ";
-    std::getline(std::cin, SERVER_IP);
 
-    std::string portInput;
-    std::cout << "Enter Server Port: ";
-    std::getline(std::cin, portInput);
-
-    std::cout << "Name: ";
-    std::getline(std::cin, playername);
-
-    try {
-        SERVER_PORT = std::stoi(portInput);
+    std::ifstream configFile("config.txt");
+    if (!configFile.is_open()) {
+        std::cerr << "Failed to open config file.\n";
+        return false;
     }
-    catch (const std::exception& e) {
-        std::cerr << "Invalid port number. Using default port 1111.\n";
-        SERVER_PORT = 1111;
+
+    std::string line;
+    while (std::getline(configFile, line)) {
+        std::istringstream iss(line);
+        std::string key, value;
+
+        // Split each line into key and value
+        if (std::getline(iss, key, '=') && std::getline(iss, value)) {
+            if (key == "SERVER_IP") {
+                SERVER_IP = value;
+            }
+            else if (key == "SERVER_PORT") {
+
+                SERVER_PORT = std::stoi(value);
+
+            }
+            else if (key == "PLAYER_NAME") {
+                playername = value;
+            }
+        }
     }
-#else
-    playername = "GWEE BOON XUEN SEAN";
-#endif
+
+    if (SERVER_IP.empty()) {
+        std::cout << "Enter Server IP Address: ";
+        std::getline(std::cin, SERVER_IP);
+    }
+    if (SERVER_PORT == 0) {
+        std::string portInput;
+        std::cout << "Enter Server Port: ";
+        std::getline(std::cin, portInput);
+
+        try {
+            SERVER_PORT = std::stoi(portInput);
+        }
+        catch (const std::exception& e) {
+            std::cerr << "Invalid port number. Using default port 3001.\n";
+            SERVER_PORT = 3001;
+        }
+    }
+    if (playername.empty()) {
+        std::cout << "Enter your name: ";
+        std::getline(std::cin, playername);
+    }
+
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         std::cerr << "WSAStartup failed.\n";
@@ -405,7 +460,8 @@ bool initNetwork() {
 
     while (true) {
         auto curr = std::chrono::high_resolution_clock::now();
-        float elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(curr - start).count();
+        float elapsedMs = static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(curr - start).count());
+
         if (elapsedMs > timeoutMs) {
             std::cout << "Connection request timed out." << std::endl;
             break;
@@ -489,16 +545,12 @@ void closeNetwork() {
         recvUdpThread.join();
     }
 
-    //if (recvBroadcastThread.joinable()) {
-    //    recvBroadcastThread.join();
-    //}
-
     if (keepAliveThread.joinable()) {
         keepAliveThread.join();
     }
 
     closesocket(udpSocket);
-    //closesocket(udpBroadcastSocket);
+
     WSACleanup();
     std::cout << "Network closed.\n";
 }
@@ -506,7 +558,7 @@ void closeNetwork() {
 void GameLogic::init() {
     bool success = initNetwork();
     if (!success) {
-        exit(1);
+        return;
     }
 
     startNetworkThread();  // Start receiving data
@@ -530,29 +582,14 @@ void GameLogic::init() {
 }
 
 void GameLogic::start() {
-    // TO BE MOVED TO SERVER
-    {
-        is_game_over = false;
-        asteroid_spawn_time = ASTEROID_SPAWN_TIME;
-        //players.clear();
-    }
 
+    is_game_over = false;
+    game_timer = 0; // Game lasts for 60 seconds (adjust as needed)
 
-    // TO BE MOVED TO SERVER (COLOR DOES ISNT REQUIRED)
-    {
-        game_timer = 0; // Game lasts for 60 seconds (adjust as needed)
-    }
 }
 
 void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
-    //// TO BE MOVED TO SERVER
-    //if (!is_game_over) {
-    //    game_timer -= delta_time;
-    //    if (game_timer <= 0.f) {
-    //        gameOver(); 
-    //    }
-    //}
 
     window.clear();
     
@@ -564,20 +601,12 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
         int i = 0;
 
 
-        for (auto& [score, player] : leaderboard) {
+        for (auto& [score, data] : leaderboard) {
             if (i == 0) {
                 player_leaderboard.setString("Player Leaderboard");
                 player_leaderboard.setPosition(sf::Vector2f(SCREEN_WIDTH / 2.f - 150.f, 200.f));
                 window.draw(player_leaderboard);
-            }
 
-            if (i >= 5) break;  // Show only the top 5 players
-
-            player_leaderboard.setPosition(sf::Vector2f(SCREEN_WIDTH / 2.f - 150.f, 250.f + (i * 80.f)));
-            player_leaderboard.setString(player + ": " + std::to_string(score));
-            window.draw(player_leaderboard);
-
-            if (i == 4) {
                 std::string name;
                 if (playersNames.find(winner_id) != playersNames.end()) {
                     name = playersNames[winner_id];
@@ -591,17 +620,17 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 window.draw(player_leaderboard);
             }
 
+            if (i >= 5) break;  // Show only the top 5 players
+
+            player_leaderboard.setPosition(sf::Vector2f(SCREEN_WIDTH / 2.f - 450.f, 250.f + (i * 80.f)));
+            player_leaderboard.setString(data.date + " " + data.playerName + ": " + std::to_string(score));
+            window.draw(player_leaderboard);
+
             i++;
         }
 
         // Wait for Enter key to restart
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter) && window.hasFocus()) {
-            //entities.clear();
-     
-            // Test player
-            //Player* new_player = new Player(current_session_id + 1, player_colors[current_session_id + 1], sf::Vector2f(500.f, 400.f), 30.f);
-            //players[current_session_id + 1] = new_player; // Store in map
-            //entities.push_back(new_player);
 
             std::cout << "Sending REQ_START_GAME" << std::endl;
             std::vector<char> conn_buffer = { REQ_START_GAME }; 
@@ -632,13 +661,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
                 Player* player = players[current_session_id];
 
-                // Append position (x, y)
-                //std::vector<char> bytes = Global::t_to_bytes(player->position.x);
-                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-
-                //bytes = Global::t_to_bytes(player->position.y);
-                //buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-
                 // Append velocity (vector.x, vector.y)
                 std::vector<char> bytes = Global::t_to_bytes(player->velocity.x);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
@@ -648,7 +670,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
                 // Append rotation
                 player->angle -= (TURN_SPEED * delta_time);
-                player->angle = std::fmod(player->angle + 360, 360);
+                player->angle = static_cast<float>(std::fmod(player->angle + 360, 360));
 
                 // Convert to bytes and append
                 bytes = Global::t_to_bytes(player->angle);
@@ -681,7 +703,7 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
 
                 // Append rotation
                 player->angle += (TURN_SPEED * delta_time);
-                player->angle = std::fmod(player->angle + 360, 360);
+                player->angle = static_cast<float>(std::fmod(player->angle + 360, 360));
 
                 bytes = Global::t_to_bytes(player->angle);
                 buffer.insert(buffer.end(), bytes.begin(), bytes.end());
@@ -982,9 +1004,10 @@ void GameLogic::gameOver() {
 
 void GameLogic::cleanUp() {
     for (Entity* e : entities) {
+        
         delete e;
+        e = nullptr;
     }
     entities.clear();
 
-    players.clear();  // Players are also in `entities`, so we don't delete again
 }
