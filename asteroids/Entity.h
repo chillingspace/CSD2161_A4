@@ -1,3 +1,20 @@
+/* Start Header
+*****************************************************************/
+/*!
+\file Entity.h
+\author Sean Gwee, 2301326
+\par g.boonxuensean@digipen.edu
+\date 1 Apr 2025
+\brief
+This file implements the entity headers
+Copyright (C) 2025 DigiPen Institute of Technology.
+Reproduction or disclosure of this file or its contents without the
+prior written consent of DigiPen Institute of Technology is prohibited.
+*/
+/* End Header
+*******************************************************************/
+
+
 #pragma once
 #include <SFML/Graphics.hpp>
 #include "Global.h"
