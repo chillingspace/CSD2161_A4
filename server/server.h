@@ -68,7 +68,10 @@ public:
 	// server stuff
 	char serverIPAddr[MAX_PACKET_SIZE]{};
 	int serverUdpPort{};
+#ifdef USING_BROADCAST
 	int serverUdpPortBroadcast{};
+	SOCKET udp_socket_broadcast{};
+#endif
 	addrinfo* server_info = nullptr;
 	addrinfo* udp_info = nullptr;
 	std::mutex udp_info_mutex;
@@ -76,7 +79,6 @@ public:
 	// udp stuff
 	SESSION_ID session_id{};
 	SOCKET udp_socket{};
-	SOCKET udp_socket_broadcast{};
 
 	std::unordered_map<SESSION_ID, sockaddr_in> udp_clients{};
 	std::mutex udp_clients_mutex{};
