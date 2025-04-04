@@ -212,8 +212,13 @@ void listenForUdpMessages() {
                     s.angle = Global::btof(std::vector<char>(buffer + offset, buffer + offset + sizeof(float)));
                     offset += 4;
                     s.lives_left = buffer[offset++];  // 1 byte for lives_left (no need for memcpy)
+
                     s.score = buffer[offset++];  // 1 byte for score (no need for memcpy)
                     s.player_color = player_colors[s.sid];
+
+                    if (s.lives_left == 0) {
+                        continue;
+                    }
 
                     updatedPlayers.push_back(s);
                     updatedEntities = true;
@@ -770,8 +775,15 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 //std::cout << "Elapsed Time: " << elapsed << "ms\n";  // Debug log
 
                 if (elapsed >= SHOT_DELAY) {
+
                     if (players.find(current_session_id) == players.end()) {
                         std::cerr << "Error: Player not found! (ID: " << current_session_id << ")\n";
+                        return;
+                    }
+
+                    Player* player = players[current_session_id];
+
+                    if (player->lives_left == 0) {
                         return;
                     }
 
@@ -783,15 +795,13 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                     buffer.clear();  // Ensure buffer is clean
                     buffer.push_back(NEW_BULLET);
                     buffer.push_back(static_cast<char>(current_session_id));
-                    std::cout << (int)current_session_id << std::endl;
+
                     // Add sequence number
                     buffer.push_back((seq >> 24) & 0xff);
                     buffer.push_back((seq >> 16) & 0xff);
                     buffer.push_back((seq >> 8) & 0xff);
                     buffer.push_back((seq >> 0) & 0xff);
                     ++seq;
-
-                    Player* player = players[current_session_id];
 
                     // Add position
                     auto bytes = Global::t_to_bytes(player->position.x);
@@ -854,7 +864,6 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
             // Draw scoreboard based on num of players
             int i = 0;
 
-            window.draw(player_score_text);
             for (auto& [sessionID, player] : players) {
                 std::string name;
 
@@ -863,14 +872,19 @@ void GameLogic::update(sf::RenderWindow& window, float delta_time) {
                 }
                 else {
                     name = "Player " + std::to_string(sessionID);
-
                 }
+
                 player_score_text.setPosition(sf::Vector2f(40.f, 40.f + (i * 80.f)));
-                player_score_text.setString(name + "\nScore: " + std::to_string(player->score));
+                player_score_text.setString(
+                    name +
+                    "\nScore: " + std::to_string(player->score) +
+                    "\nLives: " + std::to_string(player->lives_left)
+                );
                 player_score_text.setFillColor(player->player_color);
                 window.draw(player_score_text);
                 i++;
             }
+
 
 
         }
@@ -896,7 +910,9 @@ void GameLogic::applyEntityUpdates() {
         for (const auto& updatedPlayer : updatedPlayers) {
             if (players.count(updatedPlayer.sid)) {
                 // Update existing player
+
                 Player* p = players[updatedPlayer.sid];
+
                 p->position = updatedPlayer.position;
 
                 if (p->lives_left != updatedPlayer.lives_left) {
@@ -938,6 +954,7 @@ void GameLogic::applyEntityUpdates() {
 void GameLogic::gameOver() {
     is_game_over = true;
     game_timer = 0.f;
+    leaderboard.clear();
     for (auto& [sessionID, player] : players) {
         std::string name;
 
