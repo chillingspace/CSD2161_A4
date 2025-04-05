@@ -22,41 +22,52 @@ prior written consent of DigiPen Institute of Technology is prohibited.
 #include "GameLogic.h"
 
 
+//#define _CRTDBG_MAP_ALLOC
+//#include <cstdlib>
+//#include <crtdbg.h>
+
 int main()
 {
-    // Create a window with 1600x900 resolution
-    sf::RenderWindow window(sf::VideoMode(SCREEN_WIDTH, SCREEN_HEIGHT), "Asteroids", sf::Style::Close | sf::Style::Titlebar);
-    sf::Clock clock;
-    std::cout << "Welcome to Spaceships!\n";
+	//#ifdef _DEBUG
+	//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+	//#define new new(_NORMAL_BLOCK, __FILE__, __LINE__)
+	//#endif
 
-    GameLogic::init();
-    std::thread t(Global::threadpoolManager);
+	std::thread t(Global::threadpoolManager);
+	{
+		// Create a window with 1600x900 resolution
+		sf::RenderWindow window(sf::VideoMode(SCREEN_WIDTH, SCREEN_HEIGHT), "Asteroids", sf::Style::Close | sf::Style::Titlebar);
+		sf::Clock clock;
+		std::cout << "SFML Window Created Successfully!\n";
 
-    // Main loop
-    while (window.isOpen())
-    {
-        float delta_time = clock.restart().asSeconds();
-        sf::Event event;
+		GameLogic::init();
 
-        
-        while (window.pollEvent(event))
-        {
-            if (event.type == sf::Event::Closed) // Close window on exit event
-                window.close();
-        }
+		// Main loop
+		while (window.isOpen())
+		{
+			float delta_time = clock.restart().asSeconds();
+			sf::Event event;
 
-        GameLogic::update(window, delta_time);
 
-        window.display();
-    }
+			while (window.pollEvent(event))
+			{
+				if (event.type == sf::Event::Closed) // Close window on exit event
+					window.close();
+			}
 
-    closeNetwork();
-    GameLogic::cleanUp();
-    Global::threadpool_running = false;
-    t.join();
+			GameLogic::update(window, delta_time);
 
-    std::cout << "SFML Window Closed.\n";
+			window.display();
+		}
+	}
 
-    return 0;
+	closeNetwork();
+	GameLogic::cleanUp();
+	Global::threadpool_running = false;
+	t.join();
+	std::cout << "SFML Window Closed.\n";
+
+	//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+	return 0;
 
 }
